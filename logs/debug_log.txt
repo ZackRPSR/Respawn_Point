@@ -1,0 +1,16 @@
+[2026-09-05 16:30:46] [INFO] [MAIN] Starting Respawn Point...
+[2026-09-05 16:30:46] [INFO] [INIT] Respawn Point GUI initialized successfully.
+[2026-09-05 17:26:37] [INFO] [MAIN] Starting Respawn Point...
+[2026-09-05 17:26:37] [INFO] [INIT] Respawn Point GUI initialized successfully.
+[2026-09-05 17:32:37] [INFO] [MAIN] Starting Respawn Point...
+[2026-09-05 17:32:38] [INFO] [DB_MIGRATION] Upgraded database: Added missing column 'is_live_service'.
+[2026-09-05 17:32:38] [INFO] [DB_MIGRATION] Upgraded database: Added missing column 'cover_art'.
+[2026-09-05 17:32:38] [INFO] [DB_MIGRATION] Upgraded database: Added missing column 'hero_art'.
+[2026-09-05 17:32:38] [INFO] [DB_MIGRATION] Upgraded database: Added missing column 'developer'.
+[2026-09-05 17:32:38] [INFO] [DB_MIGRATION] Upgraded database: Added missing column 'genre'.
+[2026-09-05 17:32:38] [INFO] [INIT] Respawn Point GUI initialized successfully.
+[2026-09-05 17:32:50] [DEBUG] [ANIM] Slide transition completed to Dark Souls III.
+[2026-09-05 17:32:52] [DEBUG] [ANIM] Slide transition completed to Call of Duty Black Ops 2.
+[2026-09-05 17:32:55] [DEBUG] [ANIM] Slide transition completed to Sekiro: Shadows Die Twice.
+[2026-09-05 17:33:02] [DEBUG] [ANIM] Slide transition completed to Dark Souls III.
+[2026-09-05 17:33:10] [INFO] [SHUTDOWN] Performing clean application shutdown...

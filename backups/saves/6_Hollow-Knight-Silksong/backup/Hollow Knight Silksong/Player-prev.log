@@ -1,0 +1,15 @@
+Mono path[0] = 'G:/Games/Hollow-Knight-Silksong-SteamRIP.com/Hollow Knight Silksong/Hollow Knight Silksong_Data/Managed'
+Mono config path = 'G:/Games/Hollow-Knight-Silksong-SteamRIP.com/Hollow Knight Silksong/MonoBleedingEdge/etc'
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+Initialize engine version: 6000.0.50f1-uum-100966-branch1 (16f07294548e)
+[Subsystems] Discovering subsystems at path G:/Games/Hollow-Knight-Silksong-SteamRIP.com/Hollow Knight Silksong/Hollow Knight Silksong_Data/UnitySubsystems
+GfxDevice: creating device client; kGfxThreadingModeThreaded
+Direct3D:
+    Version:  Direct3D 11.0 [level 11.1]
+    Renderer: NVIDIA GeForce GTX 1050 Ti (ID=0x1c82)
+    Vendor:   NVIDIA
+    VRAM:     4004 MB
+    Driver:   32.0.15.8266
+Begin MonoManager ReloadAssembly
