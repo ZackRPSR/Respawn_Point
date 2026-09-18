@@ -1,0 +1,127 @@
+[2026-09-05 16:30:46] [INFO] [MAIN] Starting Respawn Point...
+[2026-09-05 16:30:46] [INFO] [INIT] Respawn Point GUI initialized successfully.
+[2026-09-05 17:26:37] [INFO] [MAIN] Starting Respawn Point...
+[2026-09-05 17:26:37] [INFO] [INIT] Respawn Point GUI initialized successfully.
+[2026-09-05 17:32:37] [INFO] [MAIN] Starting Respawn Point...
+[2026-09-05 17:32:38] [INFO] [DB_MIGRATION] Upgraded database: Added missing column 'is_live_service'.
+[2026-09-05 17:32:38] [INFO] [DB_MIGRATION] Upgraded database: Added missing column 'cover_art'.
+[2026-09-05 17:32:38] [INFO] [DB_MIGRATION] Upgraded database: Added missing column 'hero_art'.
+[2026-09-05 17:32:38] [INFO] [DB_MIGRATION] Upgraded database: Added missing column 'developer'.
+[2026-09-05 17:32:38] [INFO] [DB_MIGRATION] Upgraded database: Added missing column 'genre'.
+[2026-09-05 17:32:38] [INFO] [INIT] Respawn Point GUI initialized successfully.
+[2026-09-05 17:32:50] [DEBUG] [ANIM] Slide transition completed to Dark Souls III.
+[2026-09-05 17:32:52] [DEBUG] [ANIM] Slide transition completed to Call of Duty Black Ops 2.
+[2026-09-05 17:32:55] [DEBUG] [ANIM] Slide transition completed to Sekiro: Shadows Die Twice.
+[2026-09-05 17:33:02] [DEBUG] [ANIM] Slide transition completed to Dark Souls III.
+[2026-09-05 17:33:10] [INFO] [SHUTDOWN] Performing clean application shutdown...
+[DEBUG] Searching art for: Thenoexistencenofyouandme
+[DEBUG] No SteamGridDB match found for: Thenoexistencenofyouandme
+[DEBUG] Searching art for: Thenoexistencenofyouandme
+[DEBUG] No SteamGridDB match found for: Thenoexistencenofyouandme
+[DEBUG] Searching art for: Thenoexistencenofyouandme
+[DEBUG] No SteamGridDB match found for: Thenoexistencenofyouandme
+[DEBUG] Searching art for: Thenoexistencenofyouandme
+[DEBUG] SteamGridDB HTTP 404 - response body: <!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="dns-prefetch" href="https://cdn2.steamgriddb.com/"> 
+    <link rel="preconnect" href="https://cdn2.steamgriddb.com/">
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700&amp;display=swap" rel="stylesheet">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no, user-scalable=no">
+    <title>404 - Not Found - SteamGridDB</title>
+    <link rel="icon" type="image/png" href="/static/favicon/16.png" sizes="16x16">
+    <meta name="theme-color" content="#5fb4f0">
+    <meta property="og:url" content="https://www.steamgriddb.com">
+    <meta property="og:site_name" content="SteamGridDB">
+    <link rel="me" href="https://mastodon.gamedev.place/@SteamGridDB">
+    <link rel="apple-touch-icon" href="/static/img/logo-512.png"/>
+    <link rel="preload" as="fetch" href="/api/public/user" crossorigin="anonymous">
+          <meta property="og:title" content="404 - Not Found">
+      <meta property="og:type" content="website">
+      <meta name="description" content="Download and share custom video game assets and personalize your gaming library.">
+      <meta property="og:description" content="Download and share custom video game assets and personalize your gaming library.">
+      <meta property="og:image" content="https://www.steamgriddb.com/static/img/logo-512.png">
+      <link rel="image_src" href="https://www.steamgriddb.com/static/img/logo-512.png">
+                <style>body{background-color:#272B30;}</style>
+  </head>
+  <body>
+    <div id="render-me-uwu"></div>
+    <script src="/static/assets/233e475efea66025d29a.js"></script>
+      </body>
+</html>
+[DEBUG] Art fetch failed for Thenoexistencenofyouandme: HTTP Error 404: Not Found
+[DEBUG] Searching art for query: Thenoexistencenofyouandme
+[DEBUG] SteamGridDB endpoint returned 404 for URL: https://www.steamgriddb.com/api/v2/search/query/Thenoexistencenofyouandme
+[DEBUG] No SteamGridDB match found for: Thenoexistencenofyouandme
+[DEBUG] Searching art for query: Thenoexistencenofyouandme
+[DEBUG] SteamGridDB endpoint returned 404 for URL: https://www.steamgriddb.com/api/v2/search/query/Thenoexistencenofyouandme
+[DEBUG] No SteamGridDB match found for: Thenoexistencenofyouandme
+[DEBUG] Failed to update game in DB: no such table: games
+[DEBUG] Searching art for query: Thenoexistencenofyouandme
+[DEBUG] SteamGridDB endpoint returned 404 for URL: https://www.steamgriddb.com/api/v2/search/query/Thenoexistencenofyouandme
+[DEBUG] No SteamGridDB match found for: Thenoexistencenofyouandme
+[DEBUG] Searching art for query: Dark Souls III
+[DEBUG] Downloading cover art: https://cdn2.steamgriddb.com/grid/9085f5ef67f2f7f0f38e869ffb5016a1.png
+[DEBUG] Saved cover art -> assets\covers\9_Dark-Souls-III.png
+[DEBUG] Downloading hero art: https://cdn2.steamgriddb.com/hero/7da5911f451a4d399d9739416bec1535.jpg
+[DEBUG] Saved hero art -> assets\heroes\9_Dark-Souls-III.png
+[DEBUG] Searching art for query: Thenoexistencenofyouandme
+[DEBUG] SteamGridDB endpoint returned 404 for URL: https://www.steamgriddb.com/api/v2/search/query/Thenoexistencenofyouandme
+[DEBUG] No SteamGridDB match found for: Thenoexistencenofyouandme
+[DEBUG] Searching art for query: Thenoexistencenofyouandme
+[DEBUG] SteamGridDB endpoint returned 404 for URL: https://www.steamgriddb.com/api/v2/search/query/Thenoexistencenofyouandme
+[DEBUG] No SteamGridDB match found for: Thenoexistencenofyouandme
+[DEBUG] Searching art for query: Thenoexistencenofyouandme
+[DEBUG] SteamGridDB endpoint returned 404 for URL: https://www.steamgriddb.com/api/v2/search/query/Thenoexistencenofyouandme
+[DEBUG] No SteamGridDB match found for: Thenoexistencenofyouandme
+[DEBUG] Searching art for query: Thenoexistencenofyouandme
+[DEBUG] SteamGridDB endpoint returned 404 for URL: https://www.steamgriddb.com/api/v2/search/query/Thenoexistencenofyouandme
+[DEBUG] No SteamGridDB match found for: Thenoexistencenofyouandme
+[DEBUG] Failed to update game in DB: no such table: games
+[DEBUG] Searching art for query: The NOexistenceN of you AND me
+[DEBUG] Downloading cover art: https://cdn2.steamgriddb.com/grid/6e16eb2e96d68901ff0798ae1421509d.png
+[DEBUG] Saved cover art -> assets\covers\10_The-NOexistenceN-of-you-AND-me.png
+[DEBUG] Failed to update game in DB: no such table: games
+[DEBUG] Searching art for query: The NOexistenceN of you AND me
+[DEBUG] Searching art for query: Thenoexistencenofyouandme
+[DEBUG] SteamGridDB endpoint returned 404 for URL: https://www.steamgriddb.com/api/v2/search/query/Thenoexistencenofyouandme
+[DEBUG] No SteamGridDB match found for: Thenoexistencenofyouandme
+[DEBUG] Searching art for query: Thenoexistencenofyouandme
+[DEBUG] SteamGridDB endpoint returned 404 for URL: https://www.steamgriddb.com/api/v2/search/query/Thenoexistencenofyouandme
+[DEBUG] No SteamGridDB match found for: Thenoexistencenofyouandme
+[DEBUG] Searching art for query: Thenoexistencenofyouandme
+[DEBUG] SteamGridDB endpoint returned 404 for URL: https://www.steamgriddb.com/api/v2/search/query/Thenoexistencenofyouandme
+[DEBUG] No SteamGridDB match found for: Thenoexistencenofyouandme
+[DEBUG] Failed to delete game from DB: no such table: games
+[DEBUG] Failed to delete game from DB: no such table: games
+[DEBUG] Failed to delete game from DB: no such table: games
+[DEBUG] Failed to delete game from DB: no such table: games
+[DEBUG] Failed to delete game from DB: no such table: games
+[DEBUG] Failed to delete game from DB: no such table: games
+[DEBUG] Failed to delete game from DB: no such table: games
+[DEBUG] Searching art for query: Thenoexistencenofyouandme
+[DEBUG] SteamGridDB endpoint returned 404 for URL: https://www.steamgriddb.com/api/v2/search/query/Thenoexistencenofyouandme
+[DEBUG] No SteamGridDB match found for: Thenoexistencenofyouandme
+[DEBUG] Searching art for query: The NOexistenceN of you AND me
+[DEBUG] Downloading cover art: https://cdn2.steamgriddb.com/grid/6e16eb2e96d68901ff0798ae1421509d.png
+[DEBUG] Saved cover art -> assets\covers\11_The-NOexistenceN-of-you-AND-me.png
+[DEBUG] Searching art for query: The NOexistenceN of you AND me
+[DEBUG] Searching art for query: The NOexistenceN of you AND me
+[DEBUG] Downloading cover art: https://cdn2.steamgriddb.com/grid/6e16eb2e96d68901ff0798ae1421509d.png
+[DEBUG] Saved cover art -> assets\covers\12_The-NOexistenceN-of-you-AND-me.png
+[DEBUG] Searching art for query: The NOexistenceN of you AND me
+[DEBUG] Downloading cover art: https://cdn2.steamgriddb.com/grid/6e16eb2e96d68901ff0798ae1421509d.png
+[DEBUG] Saved cover art -> assets\covers\13_The-NOexistenceN-of-you-AND-me.png
+[DEBUG] Searching art for query: Thenoexistencenofyouandme
+[DEBUG] SteamGridDB endpoint returned 404 for URL: https://www.steamgriddb.com/api/v2/search/query/Thenoexistencenofyouandme
+[DEBUG] No SteamGridDB match found for: Thenoexistencenofyouandme
+[DEBUG] Searching art for query: The NOexistenceN of you AND me
+[DEBUG] Downloading cover art: https://cdn2.steamgriddb.com/grid/6e16eb2e96d68901ff0798ae1421509d.png
+[DEBUG] Saved cover art -> assets\covers\14_The-NOexistenceN-of-you-AND-me.png
+[DEBUG] Searching art for query: Dark Souls III
+[DEBUG] Downloading cover art: https://cdn2.steamgriddb.com/grid/9085f5ef67f2f7f0f38e869ffb5016a1.png
+[DEBUG] Saved cover art -> assets\covers\15_Dark-Souls-III.png
+[DEBUG] Downloading hero art: https://cdn2.steamgriddb.com/hero/7da5911f451a4d399d9739416bec1535.jpg
+[DEBUG] Saved hero art -> assets\heroes\15_Dark-Souls-III.png

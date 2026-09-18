@@ -1,0 +1,20 @@
+# Personal library/save data - never belongs in a public repo
+library.db
+backups/
+
+# Debug logs - transient, no value in version control
+logs/
+
+# Python bytecode cache - regenerates automatically
+__pycache__/
+*.pyc
+
+# PyInstaller build artifacts - regenerate from Respawn Point.spec on every build
+build/
+dist/
+
+# Compiled executable - belongs as a Release attachment, not a tracked source file
+Respawn Point.exe
+
+# Downloaded save-location manifest cache
+ludusavi_manifest_cache.yaml

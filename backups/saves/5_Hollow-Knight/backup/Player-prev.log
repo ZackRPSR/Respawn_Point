@@ -1,0 +1,274 @@
+Mono path[0] = 'G:/Games/Hollow-Knight-SteamRIP.com/Hollow Knight/hollow_knight_Data/Managed'
+Mono config path = 'G:/Games/Hollow-Knight-SteamRIP.com/Hollow Knight/MonoBleedingEdge/etc'
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+Initialize engine version: 6000.0.61f1 (74a0adb02c31)
+[Subsystems] Discovering subsystems at path G:/Games/Hollow-Knight-SteamRIP.com/Hollow Knight/hollow_knight_Data/UnitySubsystems
+GfxDevice: creating device client; kGfxThreadingModeThreaded
+Direct3D:
+    Version:  Direct3D 11.0 [level 11.1]
+    Renderer: NVIDIA GeForce GTX 1050 Ti (ID=0x1c82)
+    Vendor:   NVIDIA
+    VRAM:     4004 MB
+    Driver:   32.0.15.8266
+Begin MonoManager ReloadAssembly
+- Loaded All Assemblies, in 11.211 seconds
+- Finished resetting the current domain, in  0.056 seconds
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+<RI> Initializing input.
+Using Windows.Gaming.Input
+<RI> Input initialized.
+UnloadTime: 11.980100 ms
+Steam initializing
+Steam logged in as STEAMRIP
+Selected online subsystem SteamOnlineSubsystem
+Discovered supported languages: DE, EN, ES, FR, IT, JA, KO, PT, RU, ZH
+Unloading 5 Unused Serialized files (Serialized files now loaded: 0)
+Loaded saved language code 'EN'
+Restored language code 'EN'
+Unloading 48 unused Assets to reduce memory usage. Loaded Objects now: 4232.
+Total: 32.807200 ms (FindLiveObjects: 0.173800 ms CreateObjectMapping: 0.128600 ms MarkObjects: 32.459700 ms  DeleteObjects: 0.044900 ms)
+
+Couldn't find GameCameras, make sure one exists in the scene.
+Steam stats received.
+Unloading 5 Unused Serialized files (Serialized files now loaded: 0)
+Didn't need to wait for PlayerPrefs load.
+Couldn't find GameCameras, make sure one exists in the scene.
+UnloadTime: 14.127400 ms
+DontDestroyOnLoad only works for root GameObjects or components on root GameObjects.
+Performing automatic level start.
+Game controller set to None.
+Loaded saved language code 'EN'
+Restored language code 'EN'
+Attempting to get `timeSamples` on an audio source that has a resource assigned that is not a clip is ignored!
+pd.maxHealth: 8 pd.maxHealthBase: 8
+Unloading 64 unused Assets to reduce memory usage. Loaded Objects now: 47337.
+Total: 37.151400 ms (FindLiveObjects: 3.771900 ms CreateObjectMapping: 1.659300 ms MarkObjects: 31.466300 ms  DeleteObjects: 0.253300 ms)
+
+Making UI menu lean.
+Attempting to get `timeSamples` on an audio source that has a resource assigned that is not a clip is ignored!
+Unloading 15 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 179 unused Assets to reduce memory usage. Loaded Objects now: 50080.
+Total: 63.697400 ms (FindLiveObjects: 3.357500 ms CreateObjectMapping: 1.938700 ms MarkObjects: 47.884000 ms  DeleteObjects: 10.516800 ms)
+
+Attempting to update blur with no renderer. Will try to find it now...
+Object Pool attached to GlobalPool has run out of Strike Nail R prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Slash Impact R prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Run Effects prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Run Effects prefabs, Instantiating an additional one.
+Could not find FSM: health_manager_enemy
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Couldn't find current scene object!
+Object Pool attached to GlobalPool could not find a copy of Audio Player NoDestroy, Instantiating a new one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Unloading 36 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 316 unused Assets to reduce memory usage. Loaded Objects now: 58091.
+Total: 50.907200 ms (FindLiveObjects: 4.676400 ms CreateObjectMapping: 2.521700 ms MarkObjects: 42.679700 ms  DeleteObjects: 1.029100 ms)
+
+Could not find FSM: health_manager_enemy
+Couldn't find current scene object!
+Object Pool attached to GlobalPool has run out of Audio Player NoDestroy prefabs, Instantiating an additional one.
+Unloading 36 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 309 unused Assets to reduce memory usage. Loaded Objects now: 58134.
+Total: 53.428600 ms (FindLiveObjects: 3.584900 ms CreateObjectMapping: 2.288300 ms MarkObjects: 46.313100 ms  DeleteObjects: 1.241800 ms)
+
+Could not find FSM: health_manager_enemy
+Object Pool attached to GlobalPool has run out of Fireball Top prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Run Effects prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Shot HK Spurt prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Audio Player Actor 2D prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Audio Player Actor 2D prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Ghost Hit Pt prefabs, Instantiating an additional one.
+Couldn't find current scene object!
+Object Pool attached to GlobalPool has run out of Audio Player NoDestroy prefabs, Instantiating an additional one.
+Unloading 47 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 1053 unused Assets to reduce memory usage. Loaded Objects now: 59017.
+Total: 67.967400 ms (FindLiveObjects: 4.309500 ms CreateObjectMapping: 2.350100 ms MarkObjects: 58.718100 ms  DeleteObjects: 2.589200 ms)
+
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of HK Plume prefabs, Instantiating an additional one.
+Could not find FSM: health_manager_enemy
+Object Pool attached to GlobalPool has run out of Nail Clash Effect prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of particle_orange blood prefabs, Instantiating an additional one.
+Couldn't find current scene object!
+Object Pool attached to GlobalPool has run out of Audio Player NoDestroy prefabs, Instantiating an additional one.
+Unloading 47 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 1048 unused Assets to reduce memory usage. Loaded Objects now: 59729.
+Total: 67.393600 ms (FindLiveObjects: 4.192000 ms CreateObjectMapping: 3.108800 ms MarkObjects: 56.179200 ms  DeleteObjects: 3.913100 ms)
+
+Could not find FSM: health_manager_enemy
+Couldn't find current scene object!
+Object Pool attached to GlobalPool has run out of Audio Player NoDestroy prefabs, Instantiating an additional one.
+Unloading 47 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 1047 unused Assets to reduce memory usage. Loaded Objects now: 59866.
+Total: 64.351100 ms (FindLiveObjects: 4.711200 ms CreateObjectMapping: 3.972000 ms MarkObjects: 53.095200 ms  DeleteObjects: 2.572300 ms)
+
+Could not find FSM: health_manager_enemy
+Couldn't find current scene object!
+Object Pool attached to GlobalPool has run out of Audio Player NoDestroy prefabs, Instantiating an additional one.
+Unloading 47 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 1044 unused Assets to reduce memory usage. Loaded Objects now: 60014.
+Total: 65.543600 ms (FindLiveObjects: 7.210000 ms CreateObjectMapping: 2.278900 ms MarkObjects: 53.506800 ms  DeleteObjects: 2.547600 ms)
+
+Could not find FSM: health_manager_enemy
+Couldn't find current scene object!
+Object Pool attached to GlobalPool has run out of Audio Player NoDestroy prefabs, Instantiating an additional one.
+Unloading 36 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 314 unused Assets to reduce memory usage. Loaded Objects now: 60037.
+Total: 70.270500 ms (FindLiveObjects: 3.937200 ms CreateObjectMapping: 2.328000 ms MarkObjects: 62.833300 ms  DeleteObjects: 1.171800 ms)
+
+Could not find FSM: health_manager_enemy
+Object Pool attached to GlobalPool has run out of Run Effects prefabs, Instantiating an additional one.
+Object Pool attached to GlobalPool has run out of Ghost Hit Pt prefabs, Instantiating an additional one.
+Couldn't find current scene object!
+Object Pool attached to GlobalPool has run out of Audio Player NoDestroy prefabs, Instantiating an additional one.
+Unloading 47 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 1047 unused Assets to reduce memory usage. Loaded Objects now: 60244.
+Total: 62.027000 ms (FindLiveObjects: 5.494900 ms CreateObjectMapping: 2.338800 ms MarkObjects: 51.464500 ms  DeleteObjects: 2.728100 ms)
+
+Could not find FSM: health_manager_enemy
+Couldn't find current scene object!
+Object Pool attached to GlobalPool has run out of Audio Player NoDestroy prefabs, Instantiating an additional one.
+Unloading 47 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 1048 unused Assets to reduce memory usage. Loaded Objects now: 60384.
+Total: 60.836600 ms (FindLiveObjects: 4.492000 ms CreateObjectMapping: 2.421100 ms MarkObjects: 50.531300 ms  DeleteObjects: 3.391900 ms)
+
+Could not find FSM: health_manager_enemy
+Couldn't find current scene object!
+Object Pool attached to GlobalPool has run out of Audio Player NoDestroy prefabs, Instantiating an additional one.
+Unloading 36 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 315 unused Assets to reduce memory usage. Loaded Objects now: 60425.
+Total: 66.367700 ms (FindLiveObjects: 3.922100 ms CreateObjectMapping: 2.129100 ms MarkObjects: 59.099700 ms  DeleteObjects: 1.216500 ms)
+
+Could not find FSM: health_manager_enemy
+Object Pool attached to GlobalPool has run out of Radiant Nail Comb prefabs, Instantiating an additional one.
+Couldn't find current scene object!
+Object Pool attached to GlobalPool has run out of Audio Player NoDestroy prefabs, Instantiating an additional one.
+Unloading 47 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 1051 unused Assets to reduce memory usage. Loaded Objects now: 60572.
+Total: 62.296400 ms (FindLiveObjects: 4.365200 ms CreateObjectMapping: 2.337100 ms MarkObjects: 53.024500 ms  DeleteObjects: 2.569200 ms)
+
+Unloading 6 Unused Serialized files (Serialized files now loaded: 0)
+UnloadTime: 4.736100 ms
+No Tilemap, refreshing GameManager
+Using fallback 1 to find tilemap. Scene  requires manual fixing.
+Using fallback 2 to find tilemap. Scene  requires manual fixing.
+Failed to find tilemap in  entirely.
+No Tilemap found!
+Unloading 182 unused Assets to reduce memory usage. Loaded Objects now: 57758.
+Total: 52.432400 ms (FindLiveObjects: 3.701300 ms CreateObjectMapping: 2.780800 ms MarkObjects: 45.267200 ms  DeleteObjects: 0.682800 ms)
+
+Unloading 5 Unused Serialized files (Serialized files now loaded: 0)
+UnloadTime: 0.413600 ms
+DontDestroyOnLoad only works for root GameObjects or components on root GameObjects.
+Performing automatic level start.
+Unloading 606 unused Assets to reduce memory usage. Loaded Objects now: 33050.
+Total: 51.962000 ms (FindLiveObjects: 1.785600 ms CreateObjectMapping: 2.740200 ms MarkObjects: 46.080300 ms  DeleteObjects: 1.355500 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Game controller set to None.
+Loaded saved language code 'EN'
+Restored language code 'EN'
+Attempting to get `timeSamples` on an audio source that has a resource assigned that is not a clip is ignored!
+pd.maxHealth: 8 pd.maxHealthBase: 8
+Unloading 37 unused Assets to reduce memory usage. Loaded Objects now: 49927.
+Total: 46.490800 ms (FindLiveObjects: 5.167900 ms CreateObjectMapping: 2.892900 ms MarkObjects: 38.330100 ms  DeleteObjects: 0.099700 ms)
+
+Shutting down Steam API.
+[Physics::Module] Cleanup current backned.
+[Physics::Module] Id: 0xf2b8ea05
+Input System module state changed to: ShutdownInProgress.
+Input System polling thread exited.
+Input System module state changed to: Shutdown.

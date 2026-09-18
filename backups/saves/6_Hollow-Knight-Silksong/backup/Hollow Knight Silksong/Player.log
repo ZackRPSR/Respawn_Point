@@ -1,0 +1,214 @@
+Mono path[0] = 'G:/Games/Hollow-Knight-Silksong-SteamRIP.com/Hollow Knight Silksong/Hollow Knight Silksong_Data/Managed'
+Mono config path = 'G:/Games/Hollow-Knight-Silksong-SteamRIP.com/Hollow Knight Silksong/MonoBleedingEdge/etc'
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+Initialize engine version: 6000.0.50f1-uum-100966-branch1 (16f07294548e)
+[Subsystems] Discovering subsystems at path G:/Games/Hollow-Knight-Silksong-SteamRIP.com/Hollow Knight Silksong/Hollow Knight Silksong_Data/UnitySubsystems
+GfxDevice: creating device client; kGfxThreadingModeThreaded
+Direct3D:
+    Version:  Direct3D 11.0 [level 11.1]
+    Renderer: NVIDIA GeForce GTX 1050 Ti (ID=0x1c82)
+    Vendor:   NVIDIA
+    VRAM:     4004 MB
+    Driver:   32.0.15.8266
+Begin MonoManager ReloadAssembly
+- Loaded All Assemblies, in  8.839 seconds
+- Finished resetting the current domain, in  0.041 seconds
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+<RI> Initializing input.
+Using Windows.Gaming.Input
+<RI> Input initialized.
+<RI> Initialized touch support.
+UnloadTime: 2.333500 ms
+Steam initializing
+Steam failed to initialize
+Selected online subsystem SteamOnlineSubsystem
+Unloading 5 Unused Serialized files (Serialized files now loaded: 529)
+UnloadTime: 5.105300 ms
+Discovered supported languages: DE, EN, ES, FR, IT, JA, KO, PT, RU, ZH, ZH_TW
+Loaded saved language code 'EN'
+Restored language code 'EN'
+Couldn't find a Game Manager, make sure one exists in the scene.
+Couldn't find a Game Manager, make sure one exists in the scene.
+Couldn't find GameCameras, make sure one exists in the scene.
+Unloading 52 unused Assets to reduce memory usage. Loaded Objects now: 6511.
+Total: 106.494700 ms (FindLiveObjects: 0.506300 ms CreateObjectMapping: 0.345000 ms MarkObjects: 105.607800 ms  DeleteObjects: 0.031200 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 529)
+Unloading 1 unused Assets to reduce memory usage. Loaded Objects now: 13760.
+Total: 9.327800 ms (FindLiveObjects: 1.827200 ms CreateObjectMapping: 1.937300 ms MarkObjects: 5.532200 ms  DeleteObjects: 0.030400 ms)
+
+Couldn't find GameCameras, make sure one exists in the scene.
+Unloading 1 Unused Serialized files (Serialized files now loaded: 583)
+Couldn't find a Game Manager, make sure one exists in the scene.
+UnloadTime: 26.715800 ms
+Loaded saved language code 'EN'
+Restored language code 'EN'
+Unloading 75 unused Assets to reduce memory usage. Loaded Objects now: 67776.
+Total: 45.782900 ms (FindLiveObjects: 7.141000 ms CreateObjectMapping: 5.092400 ms MarkObjects: 31.253200 ms  DeleteObjects: 2.296000 ms)
+
+MenuButton missing flashEffect!
+Making UI menu lean.
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor Distant V2(Clone)).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor Distant V2(Clone)).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor Distant V2(Clone)).
+Unloading 3 Unused Serialized files (Serialized files now loaded: 618)
+Unloading 119 unused Assets to reduce memory usage. Loaded Objects now: 123251.
+Total: 91.662200 ms (FindLiveObjects: 7.228200 ms CreateObjectMapping: 12.126700 ms MarkObjects: 71.573400 ms  DeleteObjects: 0.733700 ms)
+
+Can not play a disabled audio source
+Can not play a disabled audio source
+Next area display "Next Area Right (2)" in "Arborium" did not have map scene parent.
+Next area display "Next Area Right (2)" in "Arborium" did not have map scene parent.
+Unloading 1 Unused Serialized files (Serialized files now loaded: 636)
+UnloadTime: 7.316800 ms
+Unloading 8917 unused Assets to reduce memory usage. Loaded Objects now: 142188.
+Total: 145.828100 ms (FindLiveObjects: 11.300500 ms CreateObjectMapping: 13.961500 ms MarkObjects: 94.768300 ms  DeleteObjects: 25.797400 ms)
+
+Unexpected timestamp values detected. This can occur in H.264 videos not encoded with the baseline profile. Timestamps will be skewed to correct the playback for archive:/CAB-965c2a5f50b73f63c5ea1427a8f3d5b1/CAB-965c2a5f50b73f63c5ea1427a8f3d5b1.resource
+Unloading 2 Unused Serialized files (Serialized files now loaded: 632)
+Unloading 56 unused Assets to reduce memory usage. Loaded Objects now: 149205.
+Total: 127.699100 ms (FindLiveObjects: 11.318800 ms CreateObjectMapping: 9.331600 ms MarkObjects: 105.952400 ms  DeleteObjects: 1.089400 ms)
+
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor Distant V2(Clone)).
+Next area display "Next Area Right (2)" in "Arborium" did not have map scene parent.
+Next area display "Next Area Right (2)" in "Arborium" did not have map scene parent.
+Coroutine couldn't be started because the the game object 'Glow Response floor_ring large1' is inactive!
+Coroutine couldn't be started because the the game object 'Glow Response floor_ring large1' is inactive!
+Coroutine couldn't be started because the the game object 'Glow Response floor_ring large1' is inactive!
+Coroutine couldn't be started because the the game object 'Glow Response floor_ring large1' is inactive!
+Coroutine couldn't be started because the the game object 'Glow Response floor_ring large1' is inactive!
+Coroutine couldn't be started because the the game object 'Glow Response floor_ring large1' is inactive!
+Coroutine couldn't be started because the the game object 'Glow Response floor_ring large1' is inactive!
+Coroutine couldn't be started because the the game object 'Glow Response floor_ring large1' is inactive!
+Coroutine couldn't be started because the the game object 'Glow Response floor_ring large1' is inactive!
+Coroutine couldn't be started because the the game object 'Glow Response floor_ring large1' is inactive!
+Coroutine couldn't be started because the the game object 'Glow Response floor_ring large1' is inactive!
+Coroutine couldn't be started because the the game object 'Glow Response floor_ring large1' is inactive!
+Coroutine couldn't be started because the the game object 'Glow Response floor_ring large1' is inactive!
+Coroutine couldn't be started because the the game object 'Glow Response floor_ring large1' is inactive!
+Coroutine couldn't be started because the the game object 'Glow Response floor_ring large1' is inactive!
+Coroutine couldn't be started because the the game object 'Glow Response floor_ring large1' is inactive!
+Coroutine couldn't be started because the the game object 'Glow Response floor_ring large1' is inactive!
+Next area display "Next Area Right (2)" in "Arborium" did not have map scene parent.
+Couldn't find transition point "door2", falling back to first available: "left2"
+Can not play a disabled audio source
+Can not play a disabled audio source
+Can not play a disabled audio source
+Can not play a disabled audio source
+Can not play a disabled audio source
+Can not play a disabled audio source
+Coroutine couldn't be started because the the game object 'Camera Wind Region' is inactive!
+Unloading 1 Unused Serialized files (Serialized files now loaded: 583)
+Unloading 8578 unused Assets to reduce memory usage. Loaded Objects now: 146741.
+Total: 318.634200 ms (FindLiveObjects: 87.706400 ms CreateObjectMapping: 9.668500 ms MarkObjects: 179.128600 ms  DeleteObjects: 38.118500 ms)
+
+Can not play a disabled audio source
+Coroutine couldn't be started because the the game object 'Camera Wind Region' is inactive!
+Coroutine couldn't be started because the the game object 'Circle Slash Mutli' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Only custom filters can be played. Please add a custom filter or an audioclip to the audiosource (Audio Player Actor).
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Coroutine couldn't be started because the the game object 'Abyss Bullet(Clone)' is inactive!
+Using fallback 1 to find tilemap. Scene Cinematic_Ending_E requires manual fixing.
+Failed to find tilemap in Cinematic_Ending_E entirely.
+Unloading 1 Unused Serialized files (Serialized files now loaded: 590)
+UnloadTime: 70.807500 ms
+Unloading 5269 unused Assets to reduce memory usage. Loaded Objects now: 145991.
+Total: 133.134300 ms (FindLiveObjects: 11.549300 ms CreateObjectMapping: 8.754800 ms MarkObjects: 93.499300 ms  DeleteObjects: 19.330300 ms)
+
+Unable to retrieve achievement state for ENDING_E, because Steam is not initialized
+Attempting to set `time` on an audio source that has a resource assigned that is not a clip is ignored!
+Coroutine couldn't be started because the the game object 'CutsceneScreen' is inactive!
+Unloading 1 Unused Serialized files (Serialized files now loaded: 599)
+UnloadTime: 1.673600 ms
+Unloading 10 unused Assets to reduce memory usage. Loaded Objects now: 147125.
+Total: 116.953600 ms (FindLiveObjects: 12.599100 ms CreateObjectMapping: 7.094300 ms MarkObjects: 96.886400 ms  DeleteObjects: 0.373300 ms)
+
+Unable to retrieve achievement state for HERALD_WISH, because Steam is not initialized
+Converting Vertex Colors from Color32 to Color.
+Converting Vertex Colors from Color32 to Color.
+Unloading 1 Unused Serialized files (Serialized files now loaded: 579)
+UnloadTime: 3.699300 ms
+Unloading 22 unused Assets to reduce memory usage. Loaded Objects now: 147024.
+Total: 97.472300 ms (FindLiveObjects: 11.307700 ms CreateObjectMapping: 7.673900 ms MarkObjects: 78.001000 ms  DeleteObjects: 0.489400 ms)
+
+Unloading 1 Unused Serialized files (Serialized files now loaded: 578)
+UnloadTime: 2.126400 ms
+Unloading 387 unused Assets to reduce memory usage. Loaded Objects now: 143714.
+Total: 92.715500 ms (FindLiveObjects: 10.155800 ms CreateObjectMapping: 7.256400 ms MarkObjects: 74.249500 ms  DeleteObjects: 1.053600 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 527)
+Unloading 6601 unused Assets to reduce memory usage. Loaded Objects now: 27237.
+Total: 61.353700 ms (FindLiveObjects: 1.779300 ms CreateObjectMapping: 3.043500 ms MarkObjects: 44.730400 ms  DeleteObjects: 11.799900 ms)
+
+Unloading 1 Unused Serialized files (Serialized files now loaded: 581)
+UnloadTime: 1.382400 ms
+Loaded saved language code 'EN'
+Restored language code 'EN'
+Unloading 5673 unused Assets to reduce memory usage. Loaded Objects now: 67596.
+Total: 68.540200 ms (FindLiveObjects: 4.053900 ms CreateObjectMapping: 6.060900 ms MarkObjects: 48.498600 ms  DeleteObjects: 9.926600 ms)
+
+Unloading 1 Unused Serialized files (Serialized files now loaded: 579)
+Unloading 0 unused Assets to reduce memory usage. Loaded Objects now: 67597.
+Total: 58.992200 ms (FindLiveObjects: 4.081300 ms CreateObjectMapping: 5.044000 ms MarkObjects: 49.722400 ms  DeleteObjects: 0.144100 ms)
+
+[Physics::Module] Cleanup current backned.
+[Physics::Module] Id: 0xf2b8ea05
+Input System module state changed to: ShutdownInProgress.
+Input System polling thread exited.
+Input System module state changed to: Shutdown.
