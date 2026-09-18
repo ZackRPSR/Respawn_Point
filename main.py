@@ -2073,7 +2073,14 @@ def load_sidebar_icon(path, size):
     if key in _sidebar_icon_cache:
         return _sidebar_icon_cache[key]
     try:
-        img = Image.open(path).convert("RGBA").resize((size, size), Image.LANCZOS)
+        # resource_path() finds bundled files correctly whether running as a plain
+        # script or as a PyInstaller onefile exe (which unpacks bundled files into a
+        # temp folder at sys._MEIPASS instead of leaving them next to the exe). Only
+        # used here - these 5 sidebar icons are the only images that ship WITH the app
+        # and never change. Cover art, hero art, save backups, and the database are the
+        # opposite: they're written to at runtime and need to persist between runs, so
+        # they deliberately stay as plain paths next to the real exe, not bundled.
+        img = Image.open(helpers.resource_path(path)).convert("RGBA").resize((size, size), Image.LANCZOS)
         photo = ImageTk.PhotoImage(img)
     except Exception:
         photo = None
