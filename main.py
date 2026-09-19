@@ -210,6 +210,24 @@ def compute_dynamic_slot_x():
         x += w + config.CAROUSEL_GAP
     return positions
 
+def compute_packed_slot_x(occupied_offsets):
+    """Left-to-right x-positions for only the offsets that are ACTUALLY occupied right
+    now, packed with no gap left behind for empty slots. Used for the static/at-rest
+    carousel render, so a library smaller than 5 games fills in starting from the left
+    edge (CONTENT_X) instead of leaving reserved-but-empty space where an unfilled side
+    slot would have sat - that reserved gap was why a single game used to render shifted
+    well right of the left edge instead of flush against it.
+    compute_dynamic_slot_x() above is deliberately left untouched and still used by
+    animate_transition()'s slide animations, which need the full fixed 5-slot track
+    positions to animate correctly regardless of how many slots are actually occupied."""
+    positions = {}
+    x = config.CONTENT_X
+    for offset in sorted(occupied_offsets):
+        positions[offset] = x
+        w, h = config.CENTER_CARD_SIZE if offset == 0 else config.SIDE_CARD_SIZE
+        x += w + config.CAROUSEL_GAP
+    return positions
+
 def animate_lift(canvas, item, target, delay_ms=16):
     _hover_targets[item] = target
 
@@ -544,8 +562,24 @@ def _recompute_slot_occupants(center_idx, all_games):
     if not all_games:
         return
     n = len(all_games)
-    for offset in config.CARD_OFFSETS:
+    used_indices = set()
+    # Process offset 0 (center) first, then outward by distance - guarantees the
+    # selected game always claims the CENTER slot whenever the library has fewer
+    # games than there are card slots (5, from CARD_OFFSETS), instead of leaving it
+    # to whichever offset happens to hit that index first in (-2,-1,0,1,2) order.
+    for offset in sorted(config.CARD_OFFSETS, key=abs):
         idx = (center_idx + offset) % n
+        if idx in used_indices:
+            # Fewer games than card slots - the modulo wraps around and would
+            # otherwise put the SAME game into more than one slot at once. Besides
+            # looking wrong, that used to break rendering outright: card_image_refs
+            # was keyed only by game id, so two slots sharing one id would stomp
+            # each other's PhotoImage reference and one would render blank. Leaving
+            # a slot genuinely empty (no occupant, nothing drawn there) is correct
+            # any time the library has under 5 games - this never surfaced before
+            # because every library tested so far happened to have 5+ games in it.
+            continue
+        used_indices.add(idx)
         slot_occupants[offset] = all_games[idx][0]
 
 def select_game(game_id):
@@ -2308,8 +2342,16 @@ def redraw_all():
         return
 
     if not game:
+        # font= here must be a tkinter-compatible font (get_ctk_font(), which wraps
+        # ctk.CTkFont - a real tkinter.font.Font under the hood), NOT get_pil_font().
+        # get_pil_font() returns a PIL ImageFont object, only valid for drawing text onto
+        # PIL images (which is how every OTHER bit of text in this app is rendered) - this
+        # is the one spot that calls tkinter's own create_text() directly, and Tcl doesn't
+        # know what to do with a PIL font object, hence "expected integer but got object".
+        # This only ever runs when the library has zero games, which never happened during
+        # dev (always had games loaded) - so it took a truly fresh install to hit it.
         main_canvas.create_text(config.CONTENT_X, config.WINDOW_H // 2, anchor="w", fill="#888888",
-                                text="No games yet - use + Add Game to get started", font=get_pil_font(16))
+                                text="No games yet - use + Add Game to get started", font=get_ctk_font(16))
         return
 
     game_id, name, exe_path, save_path, last_played, total_minutes = game
@@ -2370,7 +2412,7 @@ def redraw_all():
     center_idx = ids.index(selected_game_id) if selected_game_id in ids else 0
     _recompute_slot_occupants(center_idx, all_games)
 
-    dynamic_slot_x = compute_dynamic_slot_x()
+    dynamic_slot_x = compute_packed_slot_x(slot_occupants.keys())
 
     visible_card_items.clear()
     for offset, g_id in list(slot_occupants.items()):
@@ -2392,7 +2434,12 @@ def redraw_all():
 
         card_img = rounded_image(pil_img, w, h, radius=12, resample=Image.LANCZOS)
         card_photo = ImageTk.PhotoImage(card_img)
-        card_image_refs[g_id] = card_photo
+        # Keyed by offset, not just g_id - if two slots ever end up pointing at the same
+        # game again (shouldn't now, but this is what actually broke rendering last time:
+        # a shared key meant the second slot's assignment silently garbage-collected the
+        # first slot's PhotoImage the instant it was overwritten), each slot keeps its own
+        # independent reference so one can never blank out another.
+        card_image_refs[f"carousel_slot_{offset}"] = card_photo
 
         y_top = config.CARD_ROW_BOTTOM_Y - h
         item = main_canvas.create_image(x_cursor, y_top, anchor="nw", image=card_photo)
