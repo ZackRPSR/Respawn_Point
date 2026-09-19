@@ -228,6 +228,21 @@ def compute_packed_slot_x(occupied_offsets):
         x += w + config.CAROUSEL_GAP
     return positions
 
+def compute_static_slot_x(games):
+    """Fixed left-to-right x-positions for EVERY game in the library, in stable id
+    order, each at SIDE_CARD_SIZE. Used whenever the whole library fits on screen at
+    once (5 or fewer games) - cards never reorder or resize here, only the gold
+    selection border moves between them (see animate_static_selection()). Unrelated to
+    compute_dynamic_slot_x()/compute_packed_slot_x() above, which are the windowed-
+    carousel positioning used once the library exceeds 5 games."""
+    positions = {}
+    x = config.CONTENT_X
+    w, _ = config.SIDE_CARD_SIZE
+    for g in games:
+        positions[g[0]] = x
+        x += w + config.CAROUSEL_GAP
+    return positions
+
 def animate_lift(canvas, item, target, delay_ms=16):
     _hover_targets[item] = target
 
@@ -582,6 +597,95 @@ def _recompute_slot_occupants(center_idx, all_games):
         used_indices.add(idx)
         slot_occupants[offset] = all_games[idx][0]
 
+def animate_static_selection(new_game_id):
+    """Selection transition used whenever the whole library fits in the row at once (5
+    or fewer games - see redraw_all()). The row itself never moves or reorders here, so
+    the cards on screen stay exactly where they are; all that needs to animate is the
+    gold selection border moving from the old game's card to the new one, plus the same
+    hero-background/title crossfade animate_transition() uses when switching games.
+    Deliberately a separate, much simpler function rather than reusing
+    animate_transition() - that one's whole job is orchestrating the 5-slot sliding/
+    hidden-card carousel, which doesn't apply here at all."""
+    global selected_game_id, animation_in_progress, current_hero_pil
+
+    all_games = db.get_all_games()
+    if not all_games:
+        return
+    games_by_id = {g[0]: g for g in all_games}
+    old_game = games_by_id.get(selected_game_id)
+    new_game = games_by_id.get(new_game_id)
+    if not new_game:
+        return
+
+    static_slot_x = compute_static_slot_x(all_games)
+    w, h = config.SIDE_CARD_SIZE
+    y_top = config.CARD_ROW_BOTTOM_Y - h
+    old_x = static_slot_x.get(selected_game_id)
+    new_x = static_slot_x.get(new_game_id)
+
+    # Clear whichever border is currently on screen from the last redraw_all() - it was
+    # tagged "selection_border" specifically so it can be found and removed here without
+    # needing to track its exact canvas item id across calls.
+    main_canvas.delete("selection_border")
+
+    animation_in_progress = True
+    selected_game_id = new_game_id
+
+    new_hero_path = helpers.get_hero_art_path(new_game[0], new_game[1])
+    is_running_new = bool(active_sessions.get(new_game[0]))
+    new_hero_pil = build_background_composite(new_hero_path, config.WINDOW_W, config.WINDOW_H, game=new_game, is_running=is_running_new)
+    old_hero_pil = current_hero_pil
+
+    TOTAL_STEPS = 10
+    bg_cache, text_cache = [], []
+    for s in range(TOTAL_STEPS + 1):
+        t = s / TOTAL_STEPS
+        eased = 1 - (1 - t) ** 3
+        if old_hero_pil is not None and new_hero_pil is not None:
+            blended = Image.blend(old_hero_pil, new_hero_pil, eased)
+        else:
+            blended = new_hero_pil or old_hero_pil
+        bg_cache.append(ImageTk.PhotoImage(blended))
+
+        if t < 0.5:
+            txt_pil = render_text_block(old_game, alpha=1.0 - t * 2.0)
+        else:
+            txt_pil = render_text_block(new_game, alpha=(t - 0.5) * 2.0)
+        text_cache.append(ImageTk.PhotoImage(txt_pil))
+
+    border_state = {"old_item": None, "new_item": None}
+
+    def step(s):
+        global current_hero_pil, animation_in_progress
+        main_canvas.itemconfig(hero_bg_item, image=bg_cache[s])
+        card_image_refs[f"static_sel_bg_{s}"] = bg_cache[s]
+        main_canvas.itemconfig(text_overlay_item, image=text_cache[s])
+        card_image_refs[f"static_sel_txt_{s}"] = text_cache[s]
+
+        t = s / TOTAL_STEPS
+        eased = 1 - (1 - t) ** 3
+
+        if border_state["old_item"]:
+            main_canvas.delete(border_state["old_item"])
+            border_state["old_item"] = None
+        if border_state["new_item"]:
+            main_canvas.delete(border_state["new_item"])
+            border_state["new_item"] = None
+
+        if old_x is not None and eased < 1.0:
+            border_state["old_item"] = draw_outer_selection_border(main_canvas, old_x, y_top, w, h, radius=12, alpha=1.0 - eased)
+        if new_x is not None and eased > 0.0:
+            border_state["new_item"] = draw_outer_selection_border(main_canvas, new_x, y_top, w, h, radius=12, alpha=eased)
+
+        if s < TOTAL_STEPS:
+            app.after(16, lambda: step(s + 1))
+        else:
+            current_hero_pil = new_hero_pil
+            animation_in_progress = False
+            redraw_all()
+
+    step(0)
+
 def select_game(game_id):
     global selected_game_id, animation_in_progress
     if game_id == selected_game_id or animation_in_progress or add_game_window_open:
@@ -591,7 +695,14 @@ def select_game(game_id):
         redraw_all()
         return
 
-    animate_transition(game_id)
+    # 5 or fewer games: the whole row is already on screen and never reorders - only
+    # the selection border needs to move (see animate_static_selection() and the
+    # matching branch in redraw_all()). More than 5: fall back to the windowed
+    # sliding-carousel animation, which is what that one was actually designed for.
+    if len(db.get_all_games()) <= 5:
+        animate_static_selection(game_id)
+    else:
+        animate_transition(game_id)
 
 def animate_transition(new_game_id):
     global selected_game_id, animation_in_progress, current_view
@@ -1933,8 +2044,8 @@ def open_backup_info_window():
     intro_lbl = ctk.CTkLabel(modal_frame, text=intro_text, font=get_ctk_font(12), text_color="#d9d9d9", justify="left")
     intro_lbl.place(x=593 // 2, y=100, anchor="center")
 
-    scroll_area = ctk.CTkScrollableFrame(modal_frame, width=525, height=215, fg_color="#4d4d4d", corner_radius=14)
-    scroll_area.place(x=593 // 2, y=295, anchor="center")
+    scroll_area = ctk.CTkScrollableFrame(modal_frame, width=525, height=190, fg_color="#4d4d4d", corner_radius=14)
+    scroll_area.place(x=593 // 2, y=280, anchor="center")
 
     def add_section(heading, steps):
         head_lbl = ctk.CTkLabel(scroll_area, text=heading, font=get_ctk_font(14, weight="bold"), text_color="#fab301", anchor="w", justify="left")
@@ -1977,8 +2088,8 @@ def open_backup_info_window():
     tip_lbl.pack(fill="x", padx=10, pady=(14, 12))
 
     status_lbl = ctk.CTkLabel(modal_frame, text="", font=get_ctk_font(11), text_color="#888899",
-                               justify="center", wraplength=530)
-    status_lbl.place(x=593 // 2, y=425, anchor="center")
+                               fg_color="transparent", justify="center", wraplength=530)
+    status_lbl.place(x=593 // 2, y=413, anchor="center")
 
     def run_backup():
         try:
@@ -2406,6 +2517,63 @@ def redraw_all():
         return
 
     all_games = db.get_all_games()
+
+    if len(all_games) <= 5:
+        # 5 or fewer games: show the whole library at once, fixed id order, fixed size -
+        # nothing reorders or resizes when the selection changes, only the gold border
+        # moves (see select_game()/animate_static_selection()). This intentionally does
+        # NOT use slot_occupants/_recompute_slot_occupants/compute_dynamic_slot_x at all -
+        # those exist purely for the windowed carousel below, which only kicks in once
+        # there are more games than can fit in the row at once.
+        static_slot_x = compute_static_slot_x(all_games)
+        w, h = config.SIDE_CARD_SIZE
+        y_top = config.CARD_ROW_BOTTOM_Y - h
+        visible_card_items.clear()
+        for g in all_games:
+            g_id, g_name, g_exe, g_save, g_last, g_total = g
+            x_cursor = static_slot_x[g_id]
+            cover_path = helpers.get_cover_art_path(g_id, g_name)
+
+            if cover_path and os.path.exists(cover_path):
+                try:
+                    pil_img = Image.open(cover_path)
+                except Exception:
+                    pil_img = Image.new("RGB", (600, 900), (40, 40, 45))
+            else:
+                pil_img = Image.new("RGB", (600, 900), (40, 40, 45))
+
+            card_img = rounded_image(pil_img, w, h, radius=12, resample=Image.LANCZOS)
+            card_photo = ImageTk.PhotoImage(card_img)
+            card_image_refs[f"static_slot_{g_id}"] = card_photo
+
+            item = main_canvas.create_image(x_cursor, y_top, anchor="nw", image=card_photo)
+
+            if g_id == selected_game_id:
+                # Tagged so animate_static_selection() can find and clear this exact
+                # item without needing to track its canvas id across calls.
+                border_item = draw_outer_selection_border(main_canvas, x_cursor, y_top, w, h, radius=12, alpha=1.0, tags="selection_border")
+                visible_card_items.append(border_item)
+
+            hit_zone = main_canvas.create_rectangle(x_cursor, y_top, x_cursor + w, y_top + h, fill="", outline="")
+            main_canvas.tag_bind(hit_zone, "<Button-1>", lambda e, gid=g_id: select_game(gid))
+
+            CARD_LIFT = 8
+            def on_card_enter(e, itm=item, card_id=g_id):
+                if not animation_in_progress and card_id != selected_game_id:
+                    animate_lift(main_canvas, itm, CARD_LIFT)
+            def on_card_leave(e, itm=item, card_id=g_id):
+                if not animation_in_progress and card_id != selected_game_id:
+                    animate_lift(main_canvas, itm, 0)
+            main_canvas.tag_bind(hit_zone, "<Enter>", on_card_enter)
+            main_canvas.tag_bind(hit_zone, "<Leave>", on_card_leave)
+
+            visible_card_items.append(item)
+            visible_card_items.append(hit_zone)
+        return
+
+    # More than 5 games: windowed carousel - 5 slots visible at once, the rest hidden
+    # off-screen until the selection slides them into view (see _recompute_slot_occupants()
+    # and animate_transition()).
     games_by_id_for_slots = {g[0]: g for g in all_games}
     
     ids = [g[0] for g in all_games]
