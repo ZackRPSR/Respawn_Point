@@ -2389,7 +2389,7 @@ def redraw_all():
         total_row_w = LIB_NUM_COLS * (LIB_CARD_W + LIB_CARD_PAD * 2)
 
         # --- Title position: change these two numbers freely, nothing else needs to change ---
-        TITLE_Y = 25        # vertical position of the title, in pixels from the top of the library panel
+        TITLE_Y = 0        # vertical position of the title, in pixels from the top of the library panel
         TITLE_X_NUDGE = -8  # small horizontal correction so the title's center lines up with the search
                              # bar/grid below (they're nudged right by padx=(0, 15) to make room for the
                              # scrollbar) - you likely won't need to touch this one
@@ -2400,7 +2400,7 @@ def redraw_all():
         title_lbl = ctk.CTkLabel(
             library_frame,
             text="Games Library",
-            font=get_ctk_font(24, weight="bold"),
+            font=get_ctk_font(36, weight="bold"),
             text_color="#ffffff",
             width=total_row_w
         )
