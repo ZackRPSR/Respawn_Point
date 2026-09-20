@@ -34,6 +34,14 @@ active_sessions = {}
 
 selected_game_id = None
 slot_occupants = {}
+# Cache of the last db.get_all_games() result, refreshed every time redraw_all()/
+# refresh_all() actually re-fetches the library. Exists so the hover-animation loop
+# (animate_launch_hover(), which reschedules itself every 16ms and was hitting the
+# database on every single frame while hovering the Launch/cog buttons) can read the
+# already-known list instead of opening a fresh sqlite connection dozens of times a
+# second - that per-frame DB round-trip was a real source of the sluggish feel during
+# ordinary hovering, not just a theoretical one.
+_last_known_games = []
 add_game_window_open = False
 active_modal_close_fn = None  # set to the currently-open settings/add-game modal's close
                                # function while it's open; letting sidebar navigation (or
@@ -292,6 +300,57 @@ def rounded_image(pil_img, w, h, radius=12, alpha=1.0, resample=Image.LANCZOS):
     cropped.putalpha(mask)
     return cropped
 
+def draw_smooth_rounded_rect(w, h, radius, fill, supersample=4):
+    """Draws an anti-aliased rounded rectangle by rendering it at a higher resolution
+    and shrinking it back down with LANCZOS. PIL's rounded_rectangle() has no built-in
+    anti-aliasing, so drawn directly at native size its curved edges come out visibly
+    jagged/stair-stepped - most noticeable on large, smooth curves like the Launch
+    button pill and the settings circle. Rendering 4x oversize first and downscaling
+    smooths those edges the same way anti-aliasing always works."""
+    big = Image.new("RGBA", (int(w * supersample), int(h * supersample)), (0, 0, 0, 0))
+    d = ImageDraw.Draw(big)
+    d.rounded_rectangle((0, 0, int(w * supersample) - 1, int(h * supersample) - 1),
+                         radius=int(radius * supersample), fill=fill)
+    return big.resize((int(w), int(h)), Image.LANCZOS)
+
+_card_photo_cache = {}
+
+def get_cached_card_photo(g_id, g_name, w, h):
+    """Returns an already-resized, rounded-corner PhotoImage for this game's cover art at
+    this exact size, reusing a cached one instead of re-opening the file and redoing the
+    PIL decode/resize/rounded-mask work every time. Almost every action re-triggers
+    redraw_all(), which used to re-process every visible cover from scratch on every
+    single call even though the actual image data almost never changes between redraws -
+    that repeated work was a real, general source of per-action delay, separate from the
+    hover-loop database queries fixed earlier. Keyed by the cover file's own mtime (not
+    just game id + size), so if the art underneath a game ever genuinely changes (a fresh
+    SteamGridDB fetch, say), this notices and reprocesses automatically instead of
+    needing to be manually invalidated anywhere else in the code."""
+    cover_path = helpers.get_cover_art_path(g_id, g_name)
+    try:
+        mtime = os.path.getmtime(cover_path) if cover_path and os.path.exists(cover_path) else None
+    except Exception:
+        mtime = None
+
+    key = (g_id, int(w), int(h), mtime)
+    cached = _card_photo_cache.get(key)
+    if cached is not None:
+        return cached
+
+    if mtime is not None:
+        try:
+            pil_img = Image.open(cover_path)
+        except Exception:
+            pil_img = Image.new("RGB", (600, 900), (40, 40, 45))
+    else:
+        pil_img = Image.new("RGB", (600, 900), (40, 40, 45))
+
+    card_img = rounded_image(pil_img, w, h, radius=12, resample=Image.LANCZOS)
+    card_photo = ImageTk.PhotoImage(card_img)
+    _card_photo_cache[key] = card_photo
+    return card_photo
+
+
 def draw_outer_selection_border(canvas, x, y, w, h, radius=12, border_thickness=4, gap=3, color="#fab301", alpha=1.0, tags=None):
     if alpha <= 0:
         return []
@@ -526,9 +585,8 @@ def draw_launch_and_settings_buttons(canvas, width, height, game, is_running, ho
         b_val = int(b_base + (b_target - b_base) * hover_progress)
         text_str = "LAUNCH"
     
-    btn_img = Image.new("RGBA", (btn_w, btn_h), (0, 0, 0, 0))
+    btn_img = draw_smooth_rounded_rect(btn_w, btn_h, btn_h / 2, (r_val, g_val, b_val, 255))
     pdraw = ImageDraw.Draw(btn_img)
-    pdraw.rounded_rectangle((0, 0, btn_w - 1, btn_h - 1), radius=btn_h / 2, fill=(r_val, g_val, b_val, 255))
     
     f = get_pil_font(25)
     bbox = pdraw.textbbox((0, 0), text_str, font=f)
@@ -546,9 +604,7 @@ def draw_launch_and_settings_buttons(canvas, width, height, game, is_running, ho
     settings_x = width - 310
     settings_y = height - 100
 
-    settings_img = Image.new("RGBA", (settings_w, settings_h), (0, 0, 0, 0))
-    sdraw = ImageDraw.Draw(settings_img)
-    sdraw.rounded_rectangle((0, 0, settings_w - 1, settings_h - 1), radius=settings_h / 2, fill=(43, 43, 43, 255))
+    settings_img = draw_smooth_rounded_rect(settings_w, settings_h, settings_h / 2, (43, 43, 43, 255))
 
     gear_icon = create_cogwheel_icon(size=26, color="white", angle=cog_angle)
     gx = (settings_w - gear_icon.width) // 2
@@ -938,7 +994,14 @@ def animate_launch_hover():
 
     if updated and current_view in ("carousel", "focus"):
         main_canvas.delete("dynamic_ui")
-        games_by_id = {g[0]: g for g in db.get_all_games()}
+        # Reuses the cache from the last real redraw_all() instead of opening a fresh
+        # sqlite connection here - this function reschedules itself every 16ms and runs
+        # this whole block on every frame of any hover/cog-spin animation, so a DB hit
+        # here meant dozens of avoidable queries per second during ordinary mouse
+        # movement. The library can't change mid-hover from something other code already
+        # calls redraw_all() for anyway, so this cache is never more than one real
+        # redraw stale.
+        games_by_id = {g[0]: g for g in _last_known_games}
         game_id_to_show = focus_game_id if current_view == "focus" else selected_game_id
         game = games_by_id.get(game_id_to_show)
         is_running = bool(active_sessions.get(game[0])) if game else False
@@ -2331,7 +2394,9 @@ def redraw_all():
         library_no_games_lbl = None
         library_grid_cards = {}
 
-    games_by_id = {g[0]: g for g in db.get_all_games()}
+    global _last_known_games
+    _last_known_games = db.get_all_games()
+    games_by_id = {g[0]: g for g in _last_known_games}
     # Focus view shows focus_game_id (set only by clicking a game in the library) instead of
     # selected_game_id (the carousel's own centered game) - kept separate so opening/closing
     # the focus page never disturbs whatever was centered in the actual carousel.
@@ -2389,7 +2454,7 @@ def redraw_all():
         total_row_w = LIB_NUM_COLS * (LIB_CARD_W + LIB_CARD_PAD * 2)
 
         # --- Title position: change these two numbers freely, nothing else needs to change ---
-        TITLE_Y = 0        # vertical position of the title, in pixels from the top of the library panel
+        TITLE_Y = 25        # vertical position of the title, in pixels from the top of the library panel
         TITLE_X_NUDGE = -8  # small horizontal correction so the title's center lines up with the search
                              # bar/grid below (they're nudged right by padx=(0, 15) to make room for the
                              # scrollbar) - you likely won't need to touch this one
@@ -2400,7 +2465,7 @@ def redraw_all():
         title_lbl = ctk.CTkLabel(
             library_frame,
             text="Games Library",
-            font=get_ctk_font(36, weight="bold"),
+            font=get_ctk_font(24, weight="bold"),
             text_color="#ffffff",
             width=total_row_w
         )
@@ -2500,23 +2565,16 @@ def redraw_all():
         x_cursor = config.CONTENT_X
         y_top = config.CARD_ROW_BOTTOM_Y - h
 
-        cover_path = helpers.get_cover_art_path(game_id, name)
-        if cover_path and os.path.exists(cover_path):
-            try:
-                pil_img = Image.open(cover_path)
-            except Exception:
-                pil_img = Image.new("RGB", (600, 900), (40, 40, 45))
-        else:
-            pil_img = Image.new("RGB", (600, 900), (40, 40, 45))
-
-        card_img = rounded_image(pil_img, w, h, radius=12, resample=Image.LANCZOS)
-        card_photo = ImageTk.PhotoImage(card_img)
+        card_photo = get_cached_card_photo(game_id, name, w, h)
         card_image_refs["_focus_card"] = card_photo
         main_canvas.create_image(x_cursor, y_top, anchor="nw", image=card_photo)
         draw_outer_selection_border(main_canvas, x_cursor, y_top, w, h, radius=12, alpha=1.0)
         return
 
-    all_games = db.get_all_games()
+    # Reuse the fetch from the top of this function instead of querying the DB a second
+    # time - this is the "carousel" branch, the most common view, so this used to mean
+    # every single redraw hit sqlite twice for no reason.
+    all_games = _last_known_games
 
     if len(all_games) <= 5:
         # 5 or fewer games: show the whole library at once, fixed id order, fixed size -
@@ -2532,18 +2590,8 @@ def redraw_all():
         for g in all_games:
             g_id, g_name, g_exe, g_save, g_last, g_total = g
             x_cursor = static_slot_x[g_id]
-            cover_path = helpers.get_cover_art_path(g_id, g_name)
 
-            if cover_path and os.path.exists(cover_path):
-                try:
-                    pil_img = Image.open(cover_path)
-                except Exception:
-                    pil_img = Image.new("RGB", (600, 900), (40, 40, 45))
-            else:
-                pil_img = Image.new("RGB", (600, 900), (40, 40, 45))
-
-            card_img = rounded_image(pil_img, w, h, radius=12, resample=Image.LANCZOS)
-            card_photo = ImageTk.PhotoImage(card_img)
+            card_photo = get_cached_card_photo(g_id, g_name, w, h)
             card_image_refs[f"static_slot_{g_id}"] = card_photo
 
             item = main_canvas.create_image(x_cursor, y_top, anchor="nw", image=card_photo)
@@ -2590,18 +2638,8 @@ def redraw_all():
         w, h = config.CENTER_CARD_SIZE if offset == 0 else config.SIDE_CARD_SIZE
         x_cursor = dynamic_slot_x[offset]
         g_id, g_name, g_exe, g_save, g_last, g_total = g
-        cover_path = helpers.get_cover_art_path(g_id, g_name)
 
-        if cover_path and os.path.exists(cover_path):
-            try:
-                pil_img = Image.open(cover_path)
-            except Exception:
-                pil_img = Image.new("RGB", (600, 900), (40, 40, 45))
-        else:
-            pil_img = Image.new("RGB", (600, 900), (40, 40, 45))
-
-        card_img = rounded_image(pil_img, w, h, radius=12, resample=Image.LANCZOS)
-        card_photo = ImageTk.PhotoImage(card_img)
+        card_photo = get_cached_card_photo(g_id, g_name, w, h)
         # Keyed by offset, not just g_id - if two slots ever end up pointing at the same
         # game again (shouldn't now, but this is what actually broke rendering last time:
         # a shared key meant the second slot's assignment silently garbage-collected the
