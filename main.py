@@ -12,6 +12,8 @@ import time
 import subprocess
 import threading
 import datetime
+import random
+import math
 import urllib.request
 from tkinter import filedialog, StringVar
 import customtkinter as ctk
@@ -86,6 +88,24 @@ launch_hover_progress = 0.0
 launch_hover_target = 0.0
 cogwheel_angle = 0.0
 cogwheel_hovered = False
+
+# Fire spark particle system - ambient embers drifting from the bottom of the content area
+# to the top, behind every card/UI element but in front of the hero art. State (position,
+# lifecycle progress) lives in `fire_particles` and persists across redraws; the canvas
+# items themselves are recreated/repositioned by animate_fire_particles() on its own 16ms
+# loop, same pattern as animate_launch_hover() - fully decoupled from redraw_all(), which
+# wipes the whole canvas on every selection/view change (see FIRE_PARTICLES note below).
+fire_particles = []
+_fire_sprite_cache = {}
+# Bumped once, right after the one spot in redraw_all() that calls main_canvas.delete("all").
+# animate_fire_particles() compares this against the generation its items were last built
+# for - only on a mismatch does it bother re-checking/recreating canvas items or re-raising
+# the layer; every other frame it just moves existing items via coords(), skipping the
+# per-particle find_withtag() liveness checks and per-frame tag_raise() that were the real
+# cost of the naive version (each is a Python<->Tcl round-trip, and doing ~30+ of them every
+# single frame was what kept this from feeling like a true 60fps loop).
+_canvas_generation = 0
+_fire_particles_canvas_gen = -1
 
 FONT_FILE = helpers.get_font_path()
 
@@ -1008,6 +1028,123 @@ def animate_launch_hover():
         draw_launch_and_settings_buttons(main_canvas, config.WINDOW_W, config.WINDOW_H, game, is_running, launch_hover_progress, cogwheel_angle)
 
     app.after(16, animate_launch_hover)
+
+# --- Fire spark particle system ---------------------------------------------------------
+# Each spark travels through the same 9-stage life cycle (born small & pale -> brightens to
+# a hot yellow-white core -> cools through orange/red as it rises -> shrinks and fades out
+# just before it reaches the top). FIRE_EMBER_STAGES bakes size/color/alpha together per
+# stage so "cooling" and "fading" happen as one smooth visual instead of two separate
+# systems to keep in sync.
+FIRE_EMBER_STAGES = [
+    {"r": 1.5, "alpha": 0.00, "color": (255, 214, 130)},
+    {"r": 2.2, "alpha": 0.55, "color": (255, 221, 140)},
+    {"r": 3.0, "alpha": 0.85, "color": (255, 196, 90)},
+    {"r": 3.2, "alpha": 0.95, "color": (255, 168, 60)},
+    {"r": 3.0, "alpha": 0.90, "color": (255, 138, 45)},
+    {"r": 2.6, "alpha": 0.75, "color": (235, 100, 35)},
+    {"r": 2.2, "alpha": 0.55, "color": (205, 75, 28)},
+    {"r": 1.8, "alpha": 0.30, "color": (170, 55, 22)},
+    {"r": 1.4, "alpha": 0.00, "color": (140, 42, 18)},
+]
+
+FIRE_PARTICLE_COUNT = 30
+FIRE_TOP_LIMIT = -30  # a particle dies (and respawns at the bottom) once it rises past this y
+
+def _make_ember_sprite(radius, color, alpha):
+    """Renders one soft, blurred glow dot for a given ember stage. Called once per stage
+    (9 total) and cached - never regenerated per-frame or per-particle."""
+    pad = max(4, int(radius * 2.5))
+    size = int(radius * 2 + pad * 2)
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    cx = cy = size // 2
+    draw.ellipse([cx - radius, cy - radius, cx + radius, cy + radius], fill=(*color, int(255 * alpha)))
+    img = img.filter(ImageFilter.GaussianBlur(max(1.0, radius * 0.6)))
+    return img, ImageTk.PhotoImage(img)
+
+def _get_ember_sprite(stage_idx):
+    cached = _fire_sprite_cache.get(stage_idx)
+    if cached is None:
+        stage = FIRE_EMBER_STAGES[stage_idx]
+        pil_img, photo = _make_ember_sprite(stage["r"], stage["color"], stage["alpha"])
+        cached = (pil_img, photo)
+        _fire_sprite_cache[stage_idx] = cached
+    return cached[1]
+
+def _spawn_fire_particle():
+    """Builds one fresh spark, always starting just below the visible bottom edge. Kept
+    inside the content area (right of the sidebar) so sparks never drift over the sidebar
+    icons."""
+    x_min = config.SIDEBAR_W + 10
+    x_max = config.WINDOW_W - 10
+    base_x = random.uniform(x_min, x_max)
+    y_start = config.WINDOW_H + random.uniform(0, 80)
+    return {
+        "base_x": base_x,
+        "y": y_start,
+        "y_start": y_start,
+        "vy": random.uniform(1.0, 2.6),             # upward speed, px/frame
+        "wobble_amp": random.uniform(6, 22),        # how far it drifts side to side
+        "wobble_freq": random.uniform(0.012, 0.035),
+        "wobble_phase": random.uniform(0, math.tau),
+        "drift": random.uniform(-0.04, 0.04),       # slow overall horizontal lean
+        "frame": random.uniform(0, 200),            # randomized so sparks don't all wobble in sync
+        "item": None,
+        "stage": -1,
+    }
+
+def init_fire_particles():
+    global fire_particles
+    fire_particles = [_spawn_fire_particle() for _ in range(FIRE_PARTICLE_COUNT)]
+
+def animate_fire_particles():
+    global _fire_particles_canvas_gen
+
+    # True only on the first tick after redraw_all() has wiped and rebuilt the canvas (a
+    # selection change, view switch, etc.) - every other tick this is False and the loop
+    # below does nothing but cheap coords()/occasional itemconfig() calls.
+    canvas_was_wiped = _fire_particles_canvas_gen != _canvas_generation
+
+    for p in fire_particles:
+        p["frame"] += 1
+        p["y"] -= p["vy"]
+
+        travel = p["y_start"] - FIRE_TOP_LIMIT
+        t = 0.0 if travel <= 0 else (p["y_start"] - p["y"]) / travel
+        t = max(0.0, min(1.0, t))
+
+        if p["y"] <= FIRE_TOP_LIMIT:
+            fresh = _spawn_fire_particle()
+            fresh["item"] = p["item"]  # reuse the existing canvas item instead of leaking a new one
+            p.clear()
+            p.update(fresh)
+            t = 0.0
+
+        x = p["base_x"] + p["drift"] * p["frame"] + p["wobble_amp"] * math.sin(p["frame"] * p["wobble_freq"] + p["wobble_phase"])
+        stage_idx = int(t * (len(FIRE_EMBER_STAGES) - 1))
+        sprite = _get_ember_sprite(stage_idx)
+
+        if canvas_was_wiped or p["item"] is None:
+            # Every old item id is guaranteed dead here (delete("all") nukes the whole
+            # canvas), so there's no need to probe for it - just recreate unconditionally.
+            p["item"] = main_canvas.create_image(x, p["y"], image=sprite, tags="fire_particles")
+            p["stage"] = stage_idx
+        else:
+            main_canvas.coords(p["item"], x, p["y"])
+            if stage_idx != p["stage"]:
+                main_canvas.itemconfig(p["item"], image=sprite)
+                p["stage"] = stage_idx
+
+    if canvas_was_wiped:
+        # Pins the whole spark layer directly above the hero background and below
+        # everything else (cards, sidebar, library panel, modal overlay). Only needs
+        # redoing right after a wipe - normal coords() moves never change stacking order,
+        # so re-raising every frame (the old behavior) was pure wasted work.
+        if main_canvas.find_withtag("hero_bg"):
+            main_canvas.tag_raise("fire_particles", "hero_bg")
+        _fire_particles_canvas_gen = _canvas_generation
+
+    app.after(16, animate_fire_particles)
 
 def launch_game(game_id, name, exe_path, save_path):
     if not exe_path or not os.path.exists(exe_path) or add_game_window_open:
@@ -2383,6 +2520,8 @@ def redraw_all():
         return
         
     main_canvas.delete("all")
+    global _canvas_generation
+    _canvas_generation += 1
 
     if library_frame is not None:
         library_frame.destroy()
@@ -2411,7 +2550,7 @@ def redraw_all():
 
     bg_photo = ImageTk.PhotoImage(composite)
     card_image_refs["_bg"] = bg_photo
-    hero_bg_item = main_canvas.create_image(0, 0, anchor="nw", image=bg_photo)
+    hero_bg_item = main_canvas.create_image(0, 0, anchor="nw", image=bg_photo, tags="hero_bg")
 
     if current_view == "library":
         # Full-height panel so the top strip (above the scrollable frame, reserved for the
@@ -2454,7 +2593,7 @@ def redraw_all():
         total_row_w = LIB_NUM_COLS * (LIB_CARD_W + LIB_CARD_PAD * 2)
 
         # --- Title position: change these two numbers freely, nothing else needs to change ---
-        TITLE_Y = 25        # vertical position of the title, in pixels from the top of the library panel
+        TITLE_Y = 0        # vertical position of the title, in pixels from the top of the library panel
         TITLE_X_NUDGE = -8  # small horizontal correction so the title's center lines up with the search
                              # bar/grid below (they're nudged right by padx=(0, 15) to make room for the
                              # scrollbar) - you likely won't need to touch this one
@@ -2465,7 +2604,7 @@ def redraw_all():
         title_lbl = ctk.CTkLabel(
             library_frame,
             text="Games Library",
-            font=get_ctk_font(24, weight="bold"),
+            font=get_ctk_font(36, weight="bold"),
             text_color="#ffffff",
             width=total_row_w
         )
@@ -2757,5 +2896,7 @@ main_canvas.bind("<B1-Motion>", do_window_drag)
 
 refresh_all()
 app.after(16, animate_launch_hover)
+init_fire_particles()
+app.after(16, animate_fire_particles)
 
 app.mainloop()
