@@ -27,6 +27,11 @@ CARD_OFFSETS = (-2, -1, 0, 1, 2)
 ANIMATION_STEPS = 8
 ANIMATION_DELAY_MS = 16
 
+# --- Sound Effects ---
+SOUND_DIR = os.path.join("assets", "sounds")
+SFX_SWITCH_PATH = os.path.join(SOUND_DIR, "switch_005.ogg")
+SFX_BONG_PATH = os.path.join(SOUND_DIR, "bong_001.ogg")
+
 # --- Sidebar Icons ---
 SIDEBAR_LOGO_PATH = os.path.join("assets", "icons", "V2 variants", "Golden flame (with transparent background).png")
 SIDEBAR_CLOCK_PATH = os.path.join("assets", "icons", "Misc Icons", "image (2).png")

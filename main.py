@@ -31,6 +31,17 @@ except Exception:
 import config
 import database as db
 import helpers
+import audio
+
+def _bong(fn):
+    """Wraps a zero-arg command callback so it plays the bong SFX right before running -
+    used for every ordinary action button (launch, settings, add/delete/save forms, backup
+    & restore). Kept as a thin wrapper so existing command= callables don't need to change
+    shape, just get wrapped once where they're assigned."""
+    def wrapped(*args, **kwargs):
+        audio.play_sfx("bong")
+        return fn(*args, **kwargs)
+    return wrapped
 
 active_sessions = {}
 
@@ -638,12 +649,12 @@ def draw_launch_and_settings_buttons(canvas, width, height, game, is_running, ho
     if not add_game_window_open and not is_running:
         game_id, name, exe_path, save_path, _, _ = game
         btn_hit = canvas.create_rectangle(btn_x, btn_y, btn_x + btn_w, btn_y + btn_h, fill="", outline="", tags="dynamic_ui")
-        canvas.tag_bind(btn_hit, "<Button-1>", lambda e: launch_game(game_id, name, exe_path, save_path))
+        canvas.tag_bind(btn_hit, "<Button-1>", lambda e: [audio.play_sfx("bong"), launch_game(game_id, name, exe_path, save_path)])
         canvas.tag_bind(btn_hit, "<Enter>", lambda e: [setattr(sys.modules[__name__], 'launch_hover_target', 1.0)])
         canvas.tag_bind(btn_hit, "<Leave>", lambda e: [setattr(sys.modules[__name__], 'launch_hover_target', 0.0)])
 
         settings_hit = canvas.create_rectangle(settings_x, settings_y, settings_x + settings_w, settings_y + settings_h, fill="", outline="", tags="dynamic_ui")
-        canvas.tag_bind(settings_hit, "<Button-1>", lambda e: open_game_settings_form(game))
+        canvas.tag_bind(settings_hit, "<Button-1>", lambda e: [audio.play_sfx("bong"), open_game_settings_form(game)])
         canvas.tag_bind(settings_hit, "<Enter>", lambda e: [setattr(sys.modules[__name__], 'cogwheel_hovered', True)])
         canvas.tag_bind(settings_hit, "<Leave>", lambda e: [setattr(sys.modules[__name__], 'cogwheel_hovered', False)])
 
@@ -766,6 +777,7 @@ def select_game(game_id):
     global selected_game_id, animation_in_progress
     if game_id == selected_game_id or animation_in_progress or add_game_window_open:
         return
+    audio.play_sfx("switch")
     if selected_game_id is None:
         selected_game_id = game_id
         redraw_all()
@@ -1012,7 +1024,11 @@ def animate_launch_hover():
         cogwheel_angle += 0.08
         updated = True
 
-    if updated and current_view in ("carousel", "focus"):
+    if updated and current_view in ("carousel", "focus") and not add_game_window_open:
+        # Skip entirely while a modal covers the launch/settings buttons - they're hidden,
+        # so redrawing them (real PIL work: rounded-rect render + text + cogwheel icon,
+        # not just a cheap canvas move) on every hover frame was pure waste competing with
+        # the modal's own input handling.
         main_canvas.delete("dynamic_ui")
         # Reuses the cache from the last real redraw_all() instead of opening a fresh
         # sqlite connection here - this function reschedules itself every 16ms and runs
@@ -1099,6 +1115,18 @@ def init_fire_particles():
 
 def animate_fire_particles():
     global _fire_particles_canvas_gen
+
+    if add_game_window_open or current_view not in ("carousel", "focus"):
+        # Not visible right now - a modal (Add Game/Settings/Backup & Restore) covers it,
+        # or we're in library view where the flat gray panel fully replaces the hero
+        # background anyway. Skip the ~30-particle trig + canvas coords()/itemconfig()
+        # pass entirely instead of paying that cost every 16ms for something nobody can
+        # see - this was competing directly with modal input handling since Tkinter is
+        # single-threaded. Particles simply pick up from wherever they were once this
+        # view is visible again; canvas_was_wiped below already recreates their items
+        # fresh on the next real redraw regardless.
+        app.after(16, animate_fire_particles)
+        return
 
     # True only on the first tick after redraw_all() has wiped and rebuilt the canvas (a
     # selection change, view switch, etc.) - every other tick this is False and the loop
@@ -1565,7 +1593,7 @@ def open_game_settings_form(game):
         corner_radius=13,
         border_width=1,
         border_color="#e06666",
-        command=lambda: trigger_delete_confirm()
+        command=lambda: [audio.play_sfx("bong"), trigger_delete_confirm()]
     )
     delete_btn.place(x=22, y=350, anchor="w")
 
@@ -1601,7 +1629,7 @@ def open_game_settings_form(game):
         hover_color="#3b3b3b",
         text_color="#ffffff",
         corner_radius=17.5,
-        command=browse_exe
+        command=_bong(browse_exe)
     )
     browse_btn.place(x=s1_left + 315 + 12, y=154, anchor="nw")
 
@@ -1650,7 +1678,7 @@ def open_game_settings_form(game):
         hover_color="#3b3b3b",
         text_color="#ffffff",
         corner_radius=17.5,
-        command=run_auto_detect
+        command=_bong(run_auto_detect)
     )
     auto_btn.place(x=s2_left + 150 + 12, y=230, anchor="nw")
 
@@ -1675,7 +1703,7 @@ def open_game_settings_form(game):
         hover_color="#3b3b3b",
         text_color="#ffffff",
         corner_radius=17.5,
-        command=browse_save
+        command=_bong(browse_save)
     )
     manual_btn.place(x=s2_left + 300 + 24, y=230, anchor="nw")
 
@@ -1695,14 +1723,14 @@ def open_game_settings_form(game):
             text=f"Delete \"{name}\" from your library?\nThis only removes it from the launcher — save backups are kept.",
             text_color="#e06666"
         )
-        cancel_plain_btn.configure(text="Keep Game", command=cancel_delete_confirm)
-        confirm_fire_btn.configure(text="Delete Forever", fg_color="#c0392b", hover_color="#992d22", text_color="#ffffff", command=do_delete_game)
+        cancel_plain_btn.configure(text="Keep Game", command=_bong(cancel_delete_confirm))
+        confirm_fire_btn.configure(text="Delete Forever", fg_color="#c0392b", hover_color="#992d22", text_color="#ffffff", command=_bong(do_delete_game))
 
     def cancel_delete_confirm():
         delete_btn.place(x=22, y=350, anchor="w")
         disc_lbl.configure(text=disclaimer_text, text_color="#b0b0b0")
-        cancel_plain_btn.configure(text="Cancel", command=cancel_form)
-        confirm_fire_btn.configure(text="Confirm", fg_color="#d9d9d9", hover_color="#c0c0c0", text_color="#121216", command=confirm_form)
+        cancel_plain_btn.configure(text="Cancel", command=_bong(cancel_form))
+        confirm_fire_btn.configure(text="Confirm", fg_color="#d9d9d9", hover_color="#c0c0c0", text_color="#121216", command=_bong(confirm_form))
 
     def do_delete_game():
         try:
@@ -1800,7 +1828,7 @@ def open_game_settings_form(game):
         hover_color="#3b3b3b",
         text_color="#ffffff",
         corner_radius=19.5,
-        command=cancel_form
+        command=_bong(cancel_form)
     )
     cancel_plain_btn.place(x=btn_block_left, y=330, anchor="nw")
 
@@ -1814,7 +1842,7 @@ def open_game_settings_form(game):
         hover_color="#c0c0c0",
         text_color="#121216",
         corner_radius=19.5,
-        command=confirm_form
+        command=_bong(confirm_form)
     )
     confirm_fire_btn.place(x=btn_block_left + 150 + 19, y=330, anchor="nw")
 
@@ -1967,7 +1995,7 @@ def open_add_game_form():
         hover_color="#3b3b3b", 
         text_color="#ffffff", 
         corner_radius=17.5,
-        command=browse_exe
+        command=_bong(browse_exe)
     )
     add_btn.place(x=dir_group_left + 315 + 12, y=175, anchor="nw")
 
@@ -2014,7 +2042,7 @@ def open_add_game_form():
         hover_color="#3b3b3b",
         text_color="#ffffff",
         corner_radius=17.5,
-        command=run_auto_detect
+        command=_bong(run_auto_detect)
     )
     auto_btn.place(x=s2_left + 150 + 12, y=255, anchor="nw")
 
@@ -2039,7 +2067,7 @@ def open_add_game_form():
         hover_color="#3b3b3b",
         text_color="#ffffff",
         corner_radius=17.5,
-        command=browse_save
+        command=_bong(browse_save)
     )
     manual_btn.place(x=s2_left + 300 + 24, y=255, anchor="nw")
 
@@ -2106,7 +2134,7 @@ def open_add_game_form():
         hover_color="#3b3b3b",
         text_color="#ffffff",
         corner_radius=19.5,
-        command=cancel_form
+        command=_bong(cancel_form)
     )
     cancel_plain_btn.place(x=btn_block_left, y=385, anchor="nw")
 
@@ -2120,7 +2148,7 @@ def open_add_game_form():
         hover_color="#c0c0c0",
         text_color="#121216",
         corner_radius=19.5,
-        command=confirm_form
+        command=_bong(confirm_form)
     )
     confirm_fire_btn.place(x=btn_block_left + 150 + 19, y=385, anchor="nw")
 
@@ -2377,7 +2405,7 @@ def open_backup_info_window():
         hover_color="#dd9d00",
         text_color="#121216",
         corner_radius=19.5,
-        command=run_backup
+        command=_bong(run_backup)
     )
     backup_btn.place(x=action_btn_block_left, y=440, anchor="nw")
 
@@ -2391,7 +2419,7 @@ def open_backup_info_window():
         hover_color="#3b3b3b",
         text_color="#ffffff",
         corner_radius=19.5,
-        command=run_restore
+        command=_bong(run_restore)
     )
     restore_btn.place(x=action_btn_block_left + 220 + 20, y=440, anchor="nw")
 
@@ -2405,7 +2433,7 @@ def open_backup_info_window():
         hover_color="#c0c0c0",
         text_color="#121216",
         corner_radius=19.5,
-        command=on_form_close
+        command=_bong(on_form_close)
     )
     close_btn.place(x=593 // 2, y=520, anchor="center")
 
@@ -2462,7 +2490,7 @@ def draw_sidebar_icons():
         main_canvas.create_image(icon_x, logo_y, image=logo_photo)
     
     logo_hit = main_canvas.create_rectangle(0, logo_y - 25, sidebar_w, logo_y + 25, fill="", outline="")
-    main_canvas.tag_bind(logo_hit, "<Button-1>", lambda e: handle_flame_click())
+    main_canvas.tag_bind(logo_hit, "<Button-1>", lambda e: [audio.play_sfx("switch"), handle_flame_click()])
 
     # Real icon now exists (backup and restore.png in the Misc Icons folder) - loaded via
     # config.SIDEBAR_BACKUP_PATH the same way the other 3 mid icons are. getattr fallback
@@ -2481,13 +2509,13 @@ def draw_sidebar_icons():
             # Clock icon = "recent games" = the carousel/home view. This binding was
             # missing entirely, so clicking this icon never did anything at all,
             # regardless of which view was open - not just after opening the library.
-            main_canvas.tag_bind(hit, "<Button-1>", lambda e: switch_to_carousel_view())
+            main_canvas.tag_bind(hit, "<Button-1>", lambda e: [audio.play_sfx("switch"), switch_to_carousel_view()])
         elif i == 1:
-            main_canvas.tag_bind(hit, "<Button-1>", lambda e: switch_to_library_view())
+            main_canvas.tag_bind(hit, "<Button-1>", lambda e: [audio.play_sfx("switch"), switch_to_library_view()])
         elif i == 2:
-            main_canvas.tag_bind(hit, "<Button-1>", lambda e: open_add_game_form())
+            main_canvas.tag_bind(hit, "<Button-1>", lambda e: [audio.play_sfx("switch"), open_add_game_form()])
         elif i == 3:
-            main_canvas.tag_bind(hit, "<Button-1>", lambda e: open_backup_info_window())
+            main_canvas.tag_bind(hit, "<Button-1>", lambda e: [audio.play_sfx("switch"), open_backup_info_window()])
 
 def draw_window_controls():
     close_cx, close_cy = config.WINDOW_W - 20, 20
@@ -2812,6 +2840,7 @@ def redraw_all():
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
+audio.init_audio()
 db.init_db()
 
 app = ctk.CTk()
