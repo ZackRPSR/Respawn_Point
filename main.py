@@ -16,6 +16,7 @@ import random
 import math
 import urllib.request
 from tkinter import filedialog, StringVar
+from ctypes import wintypes
 import customtkinter as ctk
 from PIL import Image, ImageTk, ImageDraw, ImageFont, ImageFilter
 
@@ -302,11 +303,11 @@ def animate_lift(canvas, item, target, delay_ms=16):
 
     step()
 
-def rounded_image(pil_img, w, h, radius=12, alpha=1.0, resample=Image.LANCZOS):
+def rounded_image(pil_img, w, h, radius=12, alpha=1.0, resample=Image.LANCZOS, supersample=4):
     w, h = max(1, int(w)), max(1, int(h))
     if pil_img is None:
         pil_img = Image.new("RGBA", (600, 900), (40, 40, 45, 255))
-    else:
+    elif pil_img.mode != "RGBA":
         pil_img = pil_img.convert("RGBA")
         
     src_w, src_h = pil_img.size
@@ -320,13 +321,25 @@ def rounded_image(pil_img, w, h, radius=12, alpha=1.0, resample=Image.LANCZOS):
     if cropped.size != (w, h):
         cropped = cropped.resize((w, h), resample)
 
-    mask = Image.new("L", (w, h), 0)
-    ImageDraw.Draw(mask).rounded_rectangle((0, 0, w - 1, h - 1), radius=radius, fill=255)
-    
+    if supersample > 1:
+        # Supersample the corner mask (draw it Nx oversize, then shrink with LANCZOS)
+        # instead of drawing it directly at native size - same anti-aliasing trick as
+        # draw_smooth_rounded_rect, needed here because PIL's rounded_rectangle has no
+        # built-in AA and the jagged mask edges were visible on closeup. Callers on a fast
+        # per-frame path (a card scaling/fading during a transition) pass supersample=1 to
+        # skip this - the extra smoothness isn't perceptible on a moving card, and doing a
+        # full 4x render every single animation frame was real, avoidable per-frame cost.
+        ss = supersample
+        mask_big = Image.new("L", (w * ss, h * ss), 0)
+        ImageDraw.Draw(mask_big).rounded_rectangle((0, 0, w * ss - 1, h * ss - 1), radius=radius * ss, fill=255)
+        mask = mask_big.resize((w, h), Image.LANCZOS)
+    else:
+        mask = Image.new("L", (w, h), 0)
+        ImageDraw.Draw(mask).rounded_rectangle((0, 0, w - 1, h - 1), radius=radius, fill=255)
+
     if alpha < 1.0:
         alpha_val = max(0.0, min(1.0, alpha))
-        mask_data = [int(px * alpha_val) for px in mask.getdata()]
-        mask.putdata(mask_data)
+        mask = mask.point(lambda px: int(px * alpha_val))
 
     cropped.putalpha(mask)
     return cropped
@@ -345,6 +358,36 @@ def draw_smooth_rounded_rect(w, h, radius, fill, supersample=4):
     return big.resize((int(w), int(h)), Image.LANCZOS)
 
 _card_photo_cache = {}
+_card_pil_cache = {}
+
+def _get_cached_card_pil(g_id, g_name, w, h):
+    """Shared building block behind both get_cached_card_photo and get_cached_shine_frames -
+    does the actual file decode/resize/rounded-mask work once and caches the raw PIL
+    result (not yet a PhotoImage), keyed the same way get_cached_card_photo is (cover
+    file's own mtime, not just game id + size). Both callers reuse this instead of each
+    decoding the same cover file separately."""
+    cover_path = helpers.get_cover_art_path(g_id, g_name)
+    try:
+        mtime = os.path.getmtime(cover_path) if cover_path and os.path.exists(cover_path) else None
+    except Exception:
+        mtime = None
+
+    key = (g_id, int(w), int(h), mtime)
+    cached = _card_pil_cache.get(key)
+    if cached is not None:
+        return cached, key
+
+    if mtime is not None:
+        try:
+            pil_img = Image.open(cover_path)
+        except Exception:
+            pil_img = Image.new("RGB", (600, 900), (40, 40, 45))
+    else:
+        pil_img = Image.new("RGB", (600, 900), (40, 40, 45))
+
+    card_img = rounded_image(pil_img, w, h, radius=12, resample=Image.LANCZOS)
+    _card_pil_cache[key] = card_img
+    return card_img, key
 
 def get_cached_card_photo(g_id, g_name, w, h):
     """Returns an already-resized, rounded-corner PhotoImage for this game's cover art at
@@ -357,32 +400,156 @@ def get_cached_card_photo(g_id, g_name, w, h):
     just game id + size), so if the art underneath a game ever genuinely changes (a fresh
     SteamGridDB fetch, say), this notices and reprocesses automatically instead of
     needing to be manually invalidated anywhere else in the code."""
-    cover_path = helpers.get_cover_art_path(g_id, g_name)
-    try:
-        mtime = os.path.getmtime(cover_path) if cover_path and os.path.exists(cover_path) else None
-    except Exception:
-        mtime = None
-
-    key = (g_id, int(w), int(h), mtime)
+    card_img, key = _get_cached_card_pil(g_id, g_name, w, h)
     cached = _card_photo_cache.get(key)
     if cached is not None:
         return cached
-
-    if mtime is not None:
-        try:
-            pil_img = Image.open(cover_path)
-        except Exception:
-            pil_img = Image.new("RGB", (600, 900), (40, 40, 45))
-    else:
-        pil_img = Image.new("RGB", (600, 900), (40, 40, 45))
-
-    card_img = rounded_image(pil_img, w, h, radius=12, resample=Image.LANCZOS)
     card_photo = ImageTk.PhotoImage(card_img)
     _card_photo_cache[key] = card_photo
     return card_photo
 
+# --- Console-style diagonal shine sweep (recent-games/carousel center card only) -------
+# A soft white diagonal band that sweeps once across the selected card, then pauses for a
+# few seconds before sweeping again - the same idle-shimmer effect PS5/Xbox home screens
+# use on the focused tile. Frames are fully precomputed per (game, size) the first time
+# they're needed and cached forever after, so the running cost per tick is one cheap
+# itemconfig() swap - never a live PIL composite - which is exactly the "don't add another
+# per-frame PIL cost" lesson from the fire-particle/hover-button slowdown fixed earlier.
 
-def draw_outer_selection_border(canvas, x, y, w, h, radius=12, border_thickness=4, gap=3, color="#fab301", alpha=1.0, tags=None):
+_shine_streak_cache = {}
+
+def _build_shine_streak(diag):
+    """One soft-edged diagonal light band, rendered once per unique size and reused for
+    every game and every sweep - never regenerated per frame."""
+    cached = _shine_streak_cache.get(diag)
+    if cached is not None:
+        return cached
+    band_w = max(18, int(diag * 0.11))
+    streak = Image.new("L", (diag, diag), 0)
+    d = ImageDraw.Draw(streak)
+    cx = diag // 2
+    d.rectangle((cx - band_w // 2, 0, cx + band_w // 2, diag), fill=255)
+    streak = streak.rotate(35, resample=Image.BICUBIC, expand=False)
+    streak = streak.filter(ImageFilter.GaussianBlur(band_w * 0.35))
+    _shine_streak_cache[diag] = streak
+    return streak
+
+SHINE_SWEEP_FRAMES = 20   # ~600ms sweep at the loop's 30ms tick
+SHINE_PAUSE_FRAMES = 150  # ~4.5s idle pause between sweeps
+SHINE_CYCLE = SHINE_SWEEP_FRAMES + SHINE_PAUSE_FRAMES
+
+def _build_shine_frames(base_rgba, w, h):
+    diag = int((w * w + h * h) ** 0.5) + 40
+    streak = _build_shine_streak(diag)
+    travel = w + diag  # starts fully off the left edge, ends fully off the right
+    base_alpha = base_rgba.split()[3]
+    frames = []
+    for i in range(SHINE_SWEEP_FRAMES):
+        t = i / (SHINE_SWEEP_FRAMES - 1)
+        off_x = int(-diag + t * travel)
+        off_y = (h - diag) // 2
+        mask_layer = Image.new("L", (w, h), 0)
+        mask_layer.paste(streak, (off_x, off_y))
+        highlight = Image.new("RGBA", (w, h), (255, 255, 255, 0))
+        highlight.putalpha(mask_layer.point(lambda px: int(px * 0.55)))
+        composited = Image.alpha_composite(base_rgba, highlight)
+        # Reapply the card's own rounded-corner alpha so the streak can never show past
+        # the card's edges - alpha_composite above would otherwise let it bleed into the
+        # transparent margin around the art.
+        composited.putalpha(base_alpha)
+        frames.append(ImageTk.PhotoImage(composited))
+    return frames
+
+_shine_frames_cache = {}
+
+def get_cached_shine_frames(g_id, g_name, w, h):
+    card_img, key = _get_cached_card_pil(g_id, g_name, w, h)
+    cached = _shine_frames_cache.get(key)
+    if cached is not None:
+        return cached
+    frames = _build_shine_frames(card_img, w, h)
+    _shine_frames_cache[key] = frames
+    return frames
+
+# (g_id, g_name, w, h) of whichever card should currently be showing the shine sweep, or
+# None if nothing qualifies right now - set fresh by redraw_all() every time it draws the
+# carousel's center card, the focus-view card, or (in the 5-or-fewer-games layout) the one
+# card carrying the selection border. animate_card_shine() only ever reads this - it never
+# tracks canvas item ids across redraws itself, since those get deleted and recreated on
+# almost every redraw_all() call.
+_shine_target = None
+_shine_phase = 0
+
+def animate_card_shine():
+    global _shine_phase
+    if add_game_window_open or current_view not in ("carousel", "focus"):
+        # Hidden behind a modal, or in library view where there's no carousel/focus card
+        # to shine at all - skip the lookup and itemconfig entirely, just keep the clock
+        # ticking so the sweep timing stays consistent once it's visible again.
+        app.after(30, animate_card_shine)
+        return
+
+    phase = _shine_phase % SHINE_CYCLE
+    if phase < SHINE_SWEEP_FRAMES and _shine_target is not None:
+        g_id, g_name, w, h = _shine_target
+        frames = get_cached_shine_frames(g_id, g_name, w, h)
+        photo = frames[phase]
+        items = main_canvas.find_withtag("shine_card")
+        if items:
+            main_canvas.itemconfig(items[0], image=photo)
+            card_image_refs["_shine_active_frame"] = photo
+
+    _shine_phase += 1
+    app.after(30, animate_card_shine)
+
+
+_border_ring_cache = {}
+
+def _get_border_ring_base(out_w, out_h, radius, gap, border_thickness, color, supersample=4):
+    """The ring shape at full alpha, cached per unique (size, style, supersample) combo.
+    For STATIC call sites (a fixed side/center card size, not currently animating) this
+    caches essentially forever after the first draw. For call sites where the ring is
+    attached to a card that's actively changing size every frame (a scale transition),
+    out_w/out_h are a fraction-of-a-pixel different on every single tick, so this cache
+    key is effectively unique per frame and never hits - that was a real, previously
+    undiagnosed per-frame cost (a full 4x-supersampled PIL render + LANCZOS downscale,
+    every tick, for as long as a card was scaling). Those call sites now pass
+    supersample=1 to skip the AA pass entirely - same reasoning as rounded_image()'s
+    supersample=1 fast path: imperceptible on a moving/scaling element, and it turns an
+    always-cache-miss redraw into a cheap direct draw instead."""
+    key = (out_w, out_h, radius, gap, border_thickness, color, supersample)
+    cached = _border_ring_cache.get(key)
+    if cached is not None:
+        return cached
+
+    r = int(color[1:3], 16)
+    g = int(color[3:5], 16)
+    b = int(color[5:7], 16)
+    outer_radius = radius + gap + border_thickness
+    half_th = border_thickness / 2
+
+    ss = supersample
+    if ss > 1:
+        big = Image.new("RGBA", (out_w * ss, out_h * ss), (0, 0, 0, 0))
+        ImageDraw.Draw(big).rounded_rectangle(
+            (half_th * ss, half_th * ss, out_w * ss - 1 - half_th * ss, out_h * ss - 1 - half_th * ss),
+            radius=outer_radius * ss,
+            outline=(r, g, b, 255),
+            width=int(border_thickness * ss)
+        )
+        overlay = big.resize((out_w, out_h), Image.LANCZOS)
+    else:
+        overlay = Image.new("RGBA", (out_w, out_h), (0, 0, 0, 0))
+        ImageDraw.Draw(overlay).rounded_rectangle(
+            (half_th, half_th, out_w - 1 - half_th, out_h - 1 - half_th),
+            radius=outer_radius,
+            outline=(r, g, b, 255),
+            width=max(1, int(border_thickness))
+        )
+    _border_ring_cache[key] = overlay
+    return overlay
+
+def draw_outer_selection_border(canvas, x, y, w, h, radius=12, border_thickness=4, gap=8, color="#ffffff", alpha=1.0, tags=None, supersample=4):
     if alpha <= 0:
         return []
 
@@ -393,23 +560,16 @@ def draw_outer_selection_border(canvas, x, y, w, h, radius=12, border_thickness=
     out_w = max(1, int(out_x2 - out_x1))
     out_h = max(1, int(out_y2 - out_y1))
 
-    overlay = Image.new("RGBA", (out_w, out_h), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-    
-    r = int(color[1:3], 16)
-    g = int(color[3:5], 16)
-    b = int(color[5:7], 16)
-    a_val = int(255 * max(0.0, min(1.0, alpha)))
-    
-    outer_radius = radius + gap + border_thickness
-    half_th = border_thickness / 2
-    
-    draw.rounded_rectangle(
-        (half_th, half_th, out_w - 1 - half_th, out_h - 1 - half_th),
-        radius=outer_radius,
-        outline=(r, g, b, a_val),
-        width=border_thickness
-    )
+    base = _get_border_ring_base(out_w, out_h, radius, gap, border_thickness, color, supersample=supersample)
+
+    if alpha >= 0.999:
+        overlay = base
+    else:
+        # Cheap C-level per-pixel scale (PIL's .point() uses a lookup table) instead of
+        # redrawing the ring - this is the actual per-frame cost now during a fade.
+        r_ch, g_ch, b_ch, a_ch = base.split()
+        a_ch = a_ch.point(lambda px: int(px * alpha))
+        overlay = Image.merge("RGBA", (r_ch, g_ch, b_ch, a_ch))
 
     photo = ImageTk.PhotoImage(overlay)
     ref_key = f"border_{id(photo)}"
@@ -430,7 +590,7 @@ LIB_FADE_STEPS = 8         # number of frames in the grid's fade-in animation
 LIB_FADE_STEP_MS = 18      # delay between fade-in frames (~144ms total)
 LIBRARY_BG_HEX = "#1a1a1e"
 LIBRARY_BG_RGB = (26, 26, 30)
-LIB_GLOW_COLOR = (250, 179, 1, 255)  # matches the carousel's gold selection border
+LIB_GLOW_COLOR = (255, 255, 255, 255)  # white - the carousel/recent-games selection border moved to white separately, library's own hover glow was left as-is
 
 def build_library_card_art(pil_img, card_w, card_h):
     """Builds the normal + hover RGBA art for a library grid card (as PIL images, not yet
@@ -445,15 +605,22 @@ def build_library_card_art(pil_img, card_w, card_h):
     normal_canvas.paste(art, (pad, pad), art)
 
     hover_canvas = normal_canvas.copy()
-    draw = ImageDraw.Draw(hover_canvas)
     half_th = LIB_GLOW_THICKNESS / 2
     hover_radius = LIB_CARD_RADIUS + pad * 0.6
-    draw.rounded_rectangle(
-        (half_th, half_th, outer_w - 1 - half_th, outer_h - 1 - half_th),
-        radius=hover_radius,
+
+    # Same supersample-then-LANCZOS-downscale AA trick as rounded_image()/
+    # draw_outer_selection_border() - drawn 4x oversize then shrunk, since PIL's
+    # rounded_rectangle has no built-in anti-aliasing.
+    ss = 4
+    ring_big = Image.new("RGBA", (outer_w * ss, outer_h * ss), (0, 0, 0, 0))
+    ImageDraw.Draw(ring_big).rounded_rectangle(
+        (half_th * ss, half_th * ss, outer_w * ss - 1 - half_th * ss, outer_h * ss - 1 - half_th * ss),
+        radius=hover_radius * ss,
         outline=LIB_GLOW_COLOR,
-        width=LIB_GLOW_THICKNESS
+        width=int(LIB_GLOW_THICKNESS * ss)
     )
+    ring = ring_big.resize((outer_w, outer_h), Image.LANCZOS)
+    hover_canvas = Image.alpha_composite(hover_canvas, ring)
     return normal_canvas, hover_canvas
 
 def make_library_card_photos(pil_img, card_w, card_h):
@@ -724,33 +891,46 @@ def animate_static_selection(new_game_id):
     old_hero_pil = current_hero_pil
 
     TOTAL_STEPS = 10
-    bg_cache, text_cache = [], []
-    for s in range(TOTAL_STEPS + 1):
+    border_state = {"old_item": None, "new_item": None}
+
+    # Same fix as the windowed-carousel transition (_run_animation_frame): render each
+    # text state once at full alpha instead of re-rendering (font draw + GaussianBlur)
+    # on every single frame, and just rescale the cached render's alpha per frame.
+    old_text_full = render_text_block(old_game, alpha=1.0)
+    new_text_full = render_text_block(new_game, alpha=1.0)
+
+    def step(s):
+        global current_hero_pil, animation_in_progress
         t = s / TOTAL_STEPS
         eased = 1 - (1 - t) ** 3
+
+        # Background blend + text overlay computed for this one step only, not for all 11
+        # steps up front - a full WINDOW_W x WINDOW_H blend done 11 times synchronously
+        # before the first frame ever drew was the real cause of the ~half-second freeze
+        # right as a transition started (same fix as the windowed-carousel transition).
         if old_hero_pil is not None and new_hero_pil is not None:
             blended = Image.blend(old_hero_pil, new_hero_pil, eased)
         else:
             blended = new_hero_pil or old_hero_pil
-        bg_cache.append(ImageTk.PhotoImage(blended))
+        bg_photo = ImageTk.PhotoImage(blended)
+        main_canvas.itemconfig(hero_bg_item, image=bg_photo)
+        card_image_refs["_static_sel_bg"] = bg_photo
 
         if t < 0.5:
-            txt_pil = render_text_block(old_game, alpha=1.0 - t * 2.0)
+            text_alpha = 1.0 - t * 2.0
+            active_text_full = old_text_full
         else:
-            txt_pil = render_text_block(new_game, alpha=(t - 0.5) * 2.0)
-        text_cache.append(ImageTk.PhotoImage(txt_pil))
-
-    border_state = {"old_item": None, "new_item": None}
-
-    def step(s):
-        global current_hero_pil, animation_in_progress
-        main_canvas.itemconfig(hero_bg_item, image=bg_cache[s])
-        card_image_refs[f"static_sel_bg_{s}"] = bg_cache[s]
-        main_canvas.itemconfig(text_overlay_item, image=text_cache[s])
-        card_image_refs[f"static_sel_txt_{s}"] = text_cache[s]
-
-        t = s / TOTAL_STEPS
-        eased = 1 - (1 - t) ** 3
+            text_alpha = (t - 0.5) * 2.0
+            active_text_full = new_text_full
+        if text_alpha >= 0.999:
+            txt_pil = active_text_full
+        else:
+            r_ch, g_ch, b_ch, a_ch = active_text_full.split()
+            a_ch = a_ch.point(lambda px: int(px * text_alpha))
+            txt_pil = Image.merge("RGBA", (r_ch, g_ch, b_ch, a_ch))
+        text_photo = ImageTk.PhotoImage(txt_pil)
+        main_canvas.itemconfig(text_overlay_item, image=text_photo)
+        card_image_refs["_static_sel_text"] = text_photo
 
         if border_state["old_item"]:
             main_canvas.delete(border_state["old_item"])
@@ -778,6 +958,8 @@ def select_game(game_id):
     if game_id == selected_game_id or animation_in_progress or add_game_window_open:
         return
     audio.play_sfx("switch")
+    global _shine_phase
+    _shine_phase = 0
     if selected_game_id is None:
         selected_game_id = game_id
         redraw_all()
@@ -872,89 +1054,125 @@ def animate_transition(new_game_id):
     new_hero_pil = build_background_composite(new_hero_path, config.WINDOW_W, config.WINDOW_H, game=new_game, is_running=is_running_new)
     old_hero_pil = current_hero_pil
 
+    # Text overlay rendered once per state (full alpha) instead of every single frame -
+    # render_text_block() draws the title/stats text AND runs a GaussianBlur on the drop
+    # shadow, which is expensive enough that doing it 10x per transition (as this used to,
+    # once per frame at whatever alpha that frame needed) was a real chunk of the per-frame
+    # lag. _run_animation_frame now just rescales these two cached renders' alpha channel
+    # per frame with the same cheap .point() trick used elsewhere, instead of re-rendering.
+    old_text_full = render_text_block(old_game, alpha=1.0)
+    new_text_full = render_text_block(new_game, alpha=1.0)
+
     TOTAL_STEPS = 10
-    bg_cache = []
-    text_cache = []
     precomputed_tracks = []
 
-    for s in range(TOTAL_STEPS + 1):
-        t = s / TOTAL_STEPS
-        eased = 1 - (1 - t) ** 3
-
-        if old_hero_pil is not None and new_hero_pil is not None:
-            blended = Image.blend(old_hero_pil, new_hero_pil, eased)
-        else:
-            blended = new_hero_pil or old_hero_pil
-        bg_cache.append(ImageTk.PhotoImage(blended))
-
-        if t < 0.5:
-            text_alpha = 1.0 - (t * 2.0)
-            active_game_data = old_game
-        else:
-            text_alpha = (t - 0.5) * 2.0
-            active_game_data = new_game
-        txt_pil = render_text_block(active_game_data, alpha=text_alpha)
-        text_cache.append(ImageTk.PhotoImage(txt_pil))
-
     for track in raw_tracks:
-        track_frames = []
-        for s in range(TOTAL_STEPS + 1):
-            t = s / TOTAL_STEPS
-            eased = 1 - (1 - t) ** 3
-            x = track["start_x"] + (track["target_x"] - track["start_x"]) * eased
-            w = int(track["start_w"] + (track["end_w"] - track["start_w"]) * eased) if track["needs_scale"] else track["start_w"]
-            h = int(track["start_h"] + (track["end_h"] - track["start_h"]) * eased) if track["needs_scale"] else track["start_h"]
-            y_top = config.CARD_ROW_BOTTOM_Y - h
-
-            alpha = 1.0
-            if track["fade"] == "out":
-                alpha = 1.0 - t
-            elif track["fade"] == "in":
-                alpha = t
-
-            if track["needs_scale"] or alpha < 1.0:
-                img = rounded_image(track["source_pil"], w, h, radius=12, alpha=alpha, resample=Image.BILINEAR)
-            else:
-                img = track["source_pil_resized"]
-
-            if img is None:
-                img = Image.new("RGBA", (w, h), (40, 40, 45, 255))
-
-            photo = ImageTk.PhotoImage(img)
-
-            border_alpha = 0.0
-            if track["start_border"] or track["end_border"]:
-                border_alpha = (1 - eased) if (track["start_border"] and not track["end_border"]) else (eased if (track["end_border"] and not track["start_border"]) else 1.0)
-
-            track_frames.append((x, y_top, w, h, photo, border_alpha))
-        
-        init_frame = track_frames[0]
-        init_photo = init_frame[4]
-        canvas_item = main_canvas.create_image(init_frame[0], init_frame[1], anchor="nw", image=init_photo)
-        card_image_refs[f"anim_init_{canvas_item}"] = init_photo
+        x, y_top, w, h, photo, border_alpha = _compute_track_frame(track, 0, TOTAL_STEPS)
+        card_image_refs[f"anim_init_{id(track)}"] = photo
+        canvas_item = main_canvas.create_image(x, y_top, anchor="nw", image=photo)
 
         border_item = None
-        if init_frame[5] > 0:
-            border_item = draw_outer_selection_border(main_canvas, init_frame[0], init_frame[1], init_frame[2], init_frame[3], radius=12, alpha=init_frame[5])
+        if border_alpha > 0:
+            border_item = draw_outer_selection_border(main_canvas, x, y_top, w, h, radius=12, alpha=border_alpha, supersample=1)
 
-        precomputed_tracks.append({
-            "item": canvas_item,
-            "border_item": border_item,
-            "frames": track_frames
-        })
+        track["item"] = canvas_item
+        track["border_item"] = border_item
+        precomputed_tracks.append(track)
 
-    _run_animation_frame(precomputed_tracks, bg_cache, text_cache, new_hero_pil, TOTAL_STEPS, 0)
+    _run_animation_frame(precomputed_tracks, old_hero_pil, new_hero_pil, old_text_full, new_text_full, TOTAL_STEPS, 0)
+
+def _compute_track_frame(track, s, total_steps):
+    """Computes one card track's position/size/image/border-alpha for step s on demand.
+    Used to be precomputed for every step of every track up front (11 steps x up to 5
+    tracks) before the transition's first frame ever drew - together with the background
+    blend precompute this was the real source of the ~half-second freeze right as a
+    transition started. Computing each step only when it's actually about to be shown
+    spreads that same total work across real 16ms ticks instead of doing it all in one
+    blocking burst, so the canvas keeps updating the whole time rather than hanging then
+    snapping to the end state."""
+    t = s / total_steps
+    eased = 1 - (1 - t) ** 3
+    x = track["start_x"] + (track["target_x"] - track["start_x"]) * eased
+    w = int(track["start_w"] + (track["end_w"] - track["start_w"]) * eased) if track["needs_scale"] else track["start_w"]
+    h = int(track["start_h"] + (track["end_h"] - track["start_h"]) * eased) if track["needs_scale"] else track["start_h"]
+    y_top = config.CARD_ROW_BOTTOM_Y - h
+
+    alpha = 1.0
+    if track["fade"] == "out":
+        alpha = 1.0 - t
+    elif track["fade"] == "in":
+        alpha = t
+
+    if track["needs_scale"]:
+        # Size is actually changing this frame (becoming/leaving the center slot) - has
+        # to be resized from the raw source every frame, no way around it.
+        img = rounded_image(track["source_pil"], w, h, radius=12, alpha=alpha, resample=Image.BILINEAR, supersample=1)
+    elif alpha < 1.0:
+        # Fading only - size is NOT changing, so re-resizing + rebuilding the rounded-
+        # corner mask from the raw source every frame (as this used to do) was pure waste.
+        # Reuse the already-built full-alpha image (source_pil_resized) and just rescale
+        # its alpha channel - the same cheap .point() trick draw_outer_selection_border
+        # uses for the border ring - instead of a full rounded_image() rebuild.
+        base = track["source_pil_resized"]
+        r_ch, g_ch, b_ch, a_ch = base.split()
+        a_ch = a_ch.point(lambda px: int(px * alpha))
+        img = Image.merge("RGBA", (r_ch, g_ch, b_ch, a_ch))
+    else:
+        img = track["source_pil_resized"]
+    if img is None:
+        img = Image.new("RGBA", (w, h), (40, 40, 45, 255))
+    photo = ImageTk.PhotoImage(img)
+
+    border_alpha = 0.0
+    if track["start_border"] or track["end_border"]:
+        border_alpha = (1 - eased) if (track["start_border"] and not track["end_border"]) else (eased if (track["end_border"] and not track["start_border"]) else 1.0)
+
+    return x, y_top, w, h, photo, border_alpha
+
+_track_source_cache = {}
+
+def _get_track_source_pil(g_id, g_name):
+    """Cached, pre-shrunk + RGBA-converted cover art used as the resize source for
+    per-frame card animation (_compute_track_frame). Previously every animating card
+    track kept the RAW, full-resolution cover art (600x900 from SteamGridDB) as its
+    resize source - so every frame that needed an actual resize (the 1-2 cards genuinely
+    changing size during a transition) paid to convert()/resize() starting from that full
+    600x900 image, a real per-frame cost. Pre-shrinking once to just above the largest
+    card size ever animated to (CENTER_CARD_SIZE, with a margin) means every later
+    per-frame resize starts from a much smaller source instead, with no visible quality
+    loss since it's still bigger than anything it gets resized down to."""
+    cover_path = helpers.get_cover_art_path(g_id, g_name)
+    try:
+        mtime = os.path.getmtime(cover_path) if cover_path and os.path.exists(cover_path) else None
+    except Exception:
+        mtime = None
+
+    key = (g_id, mtime)
+    cached = _track_source_cache.get(key)
+    if cached is not None:
+        return cached
+
+    try:
+        if mtime is not None:
+            pil_img = Image.open(cover_path).convert("RGBA")
+        else:
+            pil_img = Image.new("RGBA", (600, 900), (40, 40, 45, 255))
+    except Exception:
+        pil_img = Image.new("RGBA", (600, 900), (40, 40, 45, 255))
+
+    target_w, target_h = config.CENTER_CARD_SIZE
+    margin = 1.15
+    src_w, src_h = pil_img.size
+    scale = max((target_w * margin) / src_w, (target_h * margin) / src_h)
+    if scale < 1.0:
+        pil_img = pil_img.resize((max(1, int(src_w * scale)), max(1, int(src_h * scale))), Image.LANCZOS)
+
+    _track_source_cache[key] = pil_img
+    return pil_img
 
 def _make_card_track(game, start_x, target_x, start_size, end_size, start_border, end_border, fade):
     g_id, g_name = game[0], game[1]
-    cover_path = helpers.get_cover_art_path(g_id, g_name)
-    try:
-        if cover_path and os.path.exists(cover_path):
-            source_pil = Image.open(cover_path)
-        else:
-            source_pil = Image.new("RGB", (600, 900), (40, 40, 45))
-    except Exception:
-        source_pil = Image.new("RGB", (600, 900), (40, 40, 45))
+    source_pil = _get_track_source_pil(g_id, g_name)
 
     w, h = start_size
     card_img = rounded_image(source_pil, w, h, radius=12, resample=Image.LANCZOS)
@@ -976,16 +1194,45 @@ def _make_card_track(game, start_x, target_x, start_size, end_size, start_border
         "fade": fade,
     }
 
-def _run_animation_frame(precomputed_tracks, bg_cache, text_cache, final_hero_pil, total_steps, step):
+def _run_animation_frame(precomputed_tracks, old_hero_pil, new_hero_pil, old_text_full, new_text_full, total_steps, step):
     global current_hero_pil, animation_in_progress, text_overlay_item
 
-    main_canvas.itemconfig(hero_bg_item, image=bg_cache[step])
-    main_canvas.itemconfig(text_overlay_item, image=text_cache[step])
-    current_hero_pil = final_hero_pil
+    t = step / total_steps
+    eased = 1 - (1 - t) ** 3
+
+    # Background blend + text overlay computed for this one step only, not precomputed for
+    # all 11 steps up front (see _compute_track_frame's docstring for why that mattered -
+    # a full WINDOW_W x WINDOW_H blend done 11 times synchronously before the first frame
+    # ever drew was the dominant cost in the old freeze).
+    if old_hero_pil is not None and new_hero_pil is not None:
+        blended = Image.blend(old_hero_pil, new_hero_pil, eased)
+    else:
+        blended = new_hero_pil or old_hero_pil
+    bg_photo = ImageTk.PhotoImage(blended)
+    main_canvas.itemconfig(hero_bg_item, image=bg_photo)
+    card_image_refs["_transition_bg"] = bg_photo
+
+    if t < 0.5:
+        text_alpha = 1.0 - (t * 2.0)
+        active_text_full = old_text_full
+    else:
+        text_alpha = (t - 0.5) * 2.0
+        active_text_full = new_text_full
+    if text_alpha >= 0.999:
+        txt_pil = active_text_full
+    else:
+        r_ch, g_ch, b_ch, a_ch = active_text_full.split()
+        a_ch = a_ch.point(lambda px: int(px * text_alpha))
+        txt_pil = Image.merge("RGBA", (r_ch, g_ch, b_ch, a_ch))
+    text_photo = ImageTk.PhotoImage(txt_pil)
+    main_canvas.itemconfig(text_overlay_item, image=text_photo)
+    card_image_refs["_transition_text"] = text_photo
+
+    current_hero_pil = new_hero_pil
 
     for track in precomputed_tracks:
-        x, y_top, w, h, photo, border_alpha = track["frames"][step]
-        ref_key = f"t_{track['item']}_{step}"
+        x, y_top, w, h, photo, border_alpha = _compute_track_frame(track, step, total_steps)
+        ref_key = f"t_{track['item']}"
         card_image_refs[ref_key] = photo
 
         main_canvas.itemconfig(track["item"], image=photo)
@@ -996,10 +1243,10 @@ def _run_animation_frame(precomputed_tracks, bg_cache, text_cache, final_hero_pi
             track["border_item"] = None
 
         if border_alpha > 0:
-            track["border_item"] = draw_outer_selection_border(main_canvas, x, y_top, w, h, radius=12, alpha=border_alpha)
+            track["border_item"] = draw_outer_selection_border(main_canvas, x, y_top, w, h, radius=12, alpha=border_alpha, supersample=1)
 
     if step < total_steps:
-        app.after(16, lambda: _run_animation_frame(precomputed_tracks, bg_cache, text_cache, final_hero_pil, total_steps, step + 1))
+        app.after(16, lambda: _run_animation_frame(precomputed_tracks, old_hero_pil, new_hero_pil, old_text_full, new_text_full, total_steps, step + 1))
     else:
         for track in precomputed_tracks:
             main_canvas.delete(track["item"])
@@ -1183,6 +1430,7 @@ def launch_game(game_id, name, exe_path, save_path):
 
     active_sessions[game_id] = True
     refresh_all()
+    _update_music_state()
 
     def run():
         game_folder = os.path.dirname(exe_path)
@@ -1195,12 +1443,14 @@ def launch_game(game_id, name, exe_path, save_path):
         except Exception:
             active_sessions.pop(game_id, None)
             app.after(0, refresh_all)
+            app.after(0, _update_music_state)
             return
 
         time.sleep(2)
         if process.poll() is not None:
             active_sessions.pop(game_id, None)
             app.after(0, refresh_all)
+            app.after(0, _update_music_state)
             return
 
         process.wait()
@@ -1212,6 +1462,7 @@ def launch_game(game_id, name, exe_path, save_path):
         def finish():
             active_sessions.pop(game_id, None)
             refresh_all()
+            _update_music_state()
         app.after(0, finish)
 
     threading.Thread(target=run, daemon=True).start()
@@ -2544,6 +2795,7 @@ def redraw_all():
     global library_search_entry_widget, library_content_wrap, library_grid_holder
     global library_card_container, library_no_games_lbl, library_grid_cards
     global focus_game_id
+    global _shine_target
     if animation_in_progress:
         return
         
@@ -2734,7 +2986,8 @@ def redraw_all():
 
         card_photo = get_cached_card_photo(game_id, name, w, h)
         card_image_refs["_focus_card"] = card_photo
-        main_canvas.create_image(x_cursor, y_top, anchor="nw", image=card_photo)
+        main_canvas.create_image(x_cursor, y_top, anchor="nw", image=card_photo, tags="shine_card")
+        _shine_target = (game_id, name, w, h)
         draw_outer_selection_border(main_canvas, x_cursor, y_top, w, h, radius=12, alpha=1.0)
         return
 
@@ -2761,9 +3014,11 @@ def redraw_all():
             card_photo = get_cached_card_photo(g_id, g_name, w, h)
             card_image_refs[f"static_slot_{g_id}"] = card_photo
 
-            item = main_canvas.create_image(x_cursor, y_top, anchor="nw", image=card_photo)
+            item = main_canvas.create_image(x_cursor, y_top, anchor="nw", image=card_photo,
+                                             tags="shine_card" if g_id == selected_game_id else ())
 
             if g_id == selected_game_id:
+                _shine_target = (g_id, g_name, w, h)
                 # Tagged so animate_static_selection() can find and clear this exact
                 # item without needing to track its canvas id across calls.
                 border_item = draw_outer_selection_border(main_canvas, x_cursor, y_top, w, h, radius=12, alpha=1.0, tags="selection_border")
@@ -2815,9 +3070,11 @@ def redraw_all():
         card_image_refs[f"carousel_slot_{offset}"] = card_photo
 
         y_top = config.CARD_ROW_BOTTOM_Y - h
-        item = main_canvas.create_image(x_cursor, y_top, anchor="nw", image=card_photo)
+        item = main_canvas.create_image(x_cursor, y_top, anchor="nw", image=card_photo,
+                                         tags="shine_card" if offset == 0 else ())
 
         if offset == 0:
+            _shine_target = (g_id, g_name, w, h)
             border_item = draw_outer_selection_border(main_canvas, x_cursor, y_top, w, h, radius=12, alpha=1.0)
             visible_card_items.append(border_item)
 
@@ -2848,6 +3105,16 @@ app.title("Respawn Point")
 app.geometry(f"{config.WINDOW_W}x{config.WINDOW_H}")
 app.resizable(False, False)
 app.overrideredirect(True)
+
+# Keep the launcher's own logo as the Windows taskbar icon.  The custom-drawn
+# sidebar logo is already available through the configured asset path.
+try:
+    _taskbar_icon = load_sidebar_icon(config.SIDEBAR_LOGO_PATH, 32)
+    if _taskbar_icon:
+        app._taskbar_icon = _taskbar_icon  # keep PhotoImage alive
+        app.iconphoto(False, _taskbar_icon)
+except Exception:
+    pass
 
 def apply_rounded_window_corners(radius=20):
     try:
@@ -2914,11 +3181,89 @@ def do_window_drag(event):
 def close_app():
     app.destroy()
 
+def _get_real_window_hwnd():
+    """Return the top-level Windows HWND used by the Tk window."""
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    user32.GetParent.argtypes = [wintypes.HWND]
+    user32.GetParent.restype = wintypes.HWND
+    user32.GetParent.argtypes = [wintypes.HWND]
+    return user32.GetParent(wintypes.HWND(app.winfo_id()))
+
 def minimize_window():
+    """Minimize the borderless launcher while keeping its custom chrome intact.
+
+    Do not toggle overrideredirect here.  Doing that hands the window back to
+    Windows' normal frame manager and is what caused the black rectangular frame
+    and lost rounded region after restore.  The taskbar style is already forced in
+    force_taskbar_icon(), so Windows can minimize the override-redirect window
+    directly.
+
+    ShowWindowAsync is intentional: unlike ShowWindow, it posts the state change
+    instead of synchronously processing it, which avoids the re-entrant Tk/Win32
+    path associated with the previous Python 3.14 crash.
+    """
     try:
-        ctypes.windll.user32.ShowWindow(ctypes.windll.user32.GetParent(app.winfo_id()), 6)
+        app.update_idletasks()
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        user32.ShowWindowAsync.argtypes = [wintypes.HWND, wintypes.INT]
+        user32.ShowWindowAsync.restype = wintypes.BOOL
+        hwnd = _get_real_window_hwnd()
+        user32.ShowWindowAsync(hwnd, 6)  # SW_MINIMIZE
     except Exception:
-        app.iconify()
+        # If the native minimize call is unavailable, use withdraw as a safe
+        # fallback rather than toggling overrideredirect or calling iconify().
+        try:
+            app.withdraw()
+        except Exception:
+            pass
+
+# --- Idle background music (fades with window minimize/restore and game launch/close) ---
+# Plays whenever the window is visible AND no game is currently running; fades out the
+# moment either stops being true, fades back in once both are true again.
+_is_minimized = False
+_startup_grace_active = True
+
+def _clear_startup_grace():
+    global _startup_grace_active
+    _startup_grace_active = False
+# force_taskbar_icon() (above) does its own brief withdraw()/deiconify() right at startup
+# to force Explorer to notice the taskbar-icon style change - that would otherwise look
+# exactly like a real minimize/restore to the <Unmap>/<Map> handlers below and trigger a
+# spurious fade right as the app opens. Ignore window state events for the first moment.
+app.after(600, _clear_startup_grace)
+
+def _update_music_state():
+    should_play = (not _is_minimized) and (not active_sessions)
+    audio.set_music_playing(should_play)
+
+def _on_window_unmap(event):
+    global _is_minimized
+    if event.widget is not app or _startup_grace_active:
+        return
+    _is_minimized = True
+    _update_music_state()
+
+def _on_window_map(event):
+    global _is_minimized
+    if event.widget is not app:
+        return
+
+    # During startup force_taskbar_icon() briefly withdraws/deiconifies the
+    # window.  Do not treat that as a real restore.
+    if _startup_grace_active:
+        return
+
+    _is_minimized = False
+
+    # The minimize path keeps overrideredirect(True), so the rounded window
+    # chrome should survive the restore.  Re-apply the DWM region as a defensive
+    # measure in case Windows/Tk dropped the region while the window was hidden.
+    app.after_idle(lambda: apply_rounded_window_corners(20))
+
+    _update_music_state()
+
+app.bind("<Unmap>", _on_window_unmap)
+app.bind("<Map>", _on_window_map)
 
 main_canvas.bind("<ButtonPress-1>", start_window_drag)
 main_canvas.bind("<B1-Motion>", do_window_drag)
@@ -2927,5 +3272,7 @@ refresh_all()
 app.after(16, animate_launch_hover)
 init_fire_particles()
 app.after(16, animate_fire_particles)
+app.after(30, animate_card_shine)
+_update_music_state()
 
 app.mainloop()
