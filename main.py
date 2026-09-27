@@ -15,7 +15,7 @@ import datetime
 import random
 import math
 import urllib.request
-from tkinter import filedialog, StringVar
+from tkinter import filedialog, StringVar, IntVar
 from ctypes import wintypes
 import customtkinter as ctk
 from PIL import Image, ImageTk, ImageDraw, ImageFont, ImageFilter
@@ -57,6 +57,8 @@ slot_occupants = {}
 # ordinary hovering, not just a theoretical one.
 _last_known_games = []
 add_game_window_open = False
+music_popup_open = False       # whether the small "Music On" toggle popup is currently shown
+music_popup_window = None      # its CTkToplevel, while open
 active_modal_close_fn = None  # set to the currently-open settings/add-game modal's close
                                # function while it's open; letting sidebar navigation (or
                                # opening a different modal) close it automatically instead of
@@ -712,6 +714,37 @@ def create_cogwheel_icon(size=26, color="white", angle=0):
         draw.line([x1, y1, x2, y2], fill=color, width=3)
     return img
 
+# Real settings-icon artwork (his own PNG, assets/icons/Misc Icons/settings icon.png),
+# used in place of the hand-drawn cogwheel above wherever a settings gear is shown.
+# getattr(config, ...) lets a future config.py constant override the path without
+# requiring one to exist yet - same defensive pattern already used for SIDEBAR_BACKUP_PATH.
+SETTINGS_ICON_RELATIVE_PATH = getattr(config, "SETTINGS_ICON_PATH", "assets/icons/Misc Icons/settings icon.png")
+_settings_icon_cache = {}
+
+def load_settings_icon(size, color="white"):
+    """Loads the real settings-icon.png and falls back to the hand-drawn
+    create_cogwheel_icon() above if that file can't be found or opened - e.g. someone
+    running a distributed .exe without its assets folder alongside it, or a dev copy
+    where this particular asset hasn't been added to the PyInstaller .spec's bundled
+    datas yet. Either way this always returns SOMETHING drawable, never None, so callers
+    never need their own missing-icon fallback.
+
+    Returns a plain PIL Image (not a PhotoImage) so callers can paste() it into a larger
+    composite (the settings button) or rotate() it for the hover-spin animation before
+    converting to a PhotoImage themselves."""
+    key = (size, color)
+    if key in _settings_icon_cache:
+        return _settings_icon_cache[key]
+    img = None
+    try:
+        img = Image.open(helpers.resource_path(SETTINGS_ICON_RELATIVE_PATH)).convert("RGBA").resize((size, size), Image.LANCZOS)
+    except Exception:
+        img = None
+    if img is None:
+        img = create_cogwheel_icon(size=size, color=color)
+    _settings_icon_cache[key] = img
+    return img
+
 _hero_composite_cache = {}
 
 def build_background_composite(hero_path, width, height, game=None, is_running=False):
@@ -804,7 +837,15 @@ def draw_launch_and_settings_buttons(canvas, width, height, game, is_running, ho
 
     settings_img = draw_smooth_rounded_rect(settings_w, settings_h, settings_h / 2, (43, 43, 43, 255))
 
-    gear_icon = create_cogwheel_icon(size=26, color="white", angle=cog_angle)
+    # load_settings_icon() returns the real PNG (or the hand-drawn fallback if it's
+    # missing) at angle 0; the hover-spin is applied as a post-hoc rotation here instead
+    # of being baked into the icon generation, since a raster PNG can't take an "angle"
+    # param the way the old procedurally-drawn gear could. Equivalent result either way -
+    # a full gear icon rotated about its own center looks identical to one drawn with an
+    # offset tooth angle, since it's radially symmetric.
+    gear_icon = load_settings_icon(size=26, color="white")
+    if cog_angle:
+        gear_icon = gear_icon.rotate(-math.degrees(cog_angle), resample=Image.BICUBIC, expand=False)
     gx = (settings_w - gear_icon.width) // 2
     gy = (settings_h - gear_icon.height) // 2
     settings_img.paste(gear_icon, (gx, gy), gear_icon)
@@ -821,7 +862,11 @@ def draw_launch_and_settings_buttons(canvas, width, height, game, is_running, ho
         canvas.tag_bind(btn_hit, "<Leave>", lambda e: [setattr(sys.modules[__name__], 'launch_hover_target', 0.0)])
 
         settings_hit = canvas.create_rectangle(settings_x, settings_y, settings_x + settings_w, settings_y + settings_h, fill="", outline="", tags="dynamic_ui")
-        canvas.tag_bind(settings_hit, "<Button-1>", lambda e: [audio.play_sfx("bong"), open_game_settings_form(game)])
+        # Force cogwheel_hovered False on click, not just on <Leave>: opening the modal
+        # hides/deletes this hit rect while the mouse is still over it, so no <Leave>
+        # ever fires and the spin would otherwise run forever until a real hover
+        # cycle happened to reset it.
+        canvas.tag_bind(settings_hit, "<Button-1>", lambda e: [setattr(sys.modules[__name__], 'cogwheel_hovered', False), audio.play_sfx("bong"), open_game_settings_form(game)])
         canvas.tag_bind(settings_hit, "<Enter>", lambda e: [setattr(sys.modules[__name__], 'cogwheel_hovered', True)])
         canvas.tag_bind(settings_hit, "<Leave>", lambda e: [setattr(sys.modules[__name__], 'cogwheel_hovered', False)])
 
@@ -2779,6 +2824,186 @@ def draw_window_controls():
     main_canvas.create_line(min_cx - 6, min_cy, min_cx + 6, min_cy, fill="#dddddd", width=2, capstyle="round")
     min_hit = main_canvas.create_rectangle(config.WINDOW_W - 85, 0, config.WINDOW_W - 45, 45, fill="", outline="")
     main_canvas.tag_bind(min_hit, "<Button-1>", lambda e: minimize_window())
+
+    # Music settings cogwheel - sits left of minimize, same row/height as close+minimize.
+    # Uses load_settings_icon() (the real settings-icon.png, same as the per-game
+    # settings button below - falls back to the hand-drawn gear if that PNG is ever
+    # missing) for visual consistency. Static/non-spinning here - it isn't tied into the
+    # existing per-frame hover-spin loop (that loop is keyed to a single game's cogwheel
+    # state and animating this one too would mean threading a second angle/hover pair
+    # through it for no real payoff on an icon this small). Deliberately no SFX on
+    # click, matching close/minimize right next to it - this row of window controls is
+    # the one place in the app that's sound-free by design.
+    gear_icon = load_settings_icon(size=18, color="#dddddd")
+    card_image_refs["window_music_gear"] = ImageTk.PhotoImage(gear_icon)
+    gear_cx, gear_cy = config.WINDOW_W - 100, 20
+    main_canvas.create_image(gear_cx, gear_cy, image=card_image_refs["window_music_gear"])
+    gear_hit = main_canvas.create_rectangle(config.WINDOW_W - 125, 0, config.WINDOW_W - 85, 45, fill="", outline="", tags="music_gear_hit")
+    main_canvas.tag_bind(gear_hit, "<Button-1>", lambda e: toggle_music_popup())
+
+
+def toggle_music_popup():
+    if music_popup_open:
+        close_music_popup()
+    else:
+        open_music_popup()
+
+
+def _animate_popup_alpha(window, steps, reverse, on_complete=None):
+    """Shared fade-in/fade-out ramp for the music popup. reverse=False eases 0->1
+    (pop in), reverse=True eases 1->0 (pop out)."""
+    def step(i=0):
+        if i > steps:
+            if on_complete:
+                on_complete()
+            return
+        t = i / steps
+        eased = pow(1 - t, 3) if reverse else 1 - pow(1 - t, 3)
+        try:
+            window.attributes("-alpha", max(0.0, min(1.0, eased)))
+        except Exception:
+            return  # window already destroyed mid-animation - nothing left to animate
+        window.after(12, lambda: step(i + 1))
+    step()
+
+
+def open_music_popup():
+    """Small standalone toggle panel for turning the background music on/off - not part
+    of the app's regular modal system (add_game_window_open / active_modal_close_fn),
+    since that system is built for full-size forms and setting add_game_window_open
+    would needlessly block game launches and card clicks while this tiny panel is up.
+    Only the gear icon opens/closes it - clicking the toggle switch inside it never
+    closes the popup, it just flips the music setting."""
+    global music_popup_open, music_popup_window
+    if music_popup_open:
+        return
+    music_popup_open = True
+
+    panel_w, panel_h = 320, 80
+
+    popup = ctk.CTkCTkToplevel(app) if hasattr(ctk, "CTkCTkToplevel") else ctk.CTkToplevel(app)
+    music_popup_window = popup  # set now (not at the end) so refresh_status_label()'s
+                                 # "am I still the current popup" check below passes on
+                                 # its very first call instead of on nothing at all
+    popup.overrideredirect(True)
+    popup.attributes("-alpha", 0.0)
+    # Corner smoothing, take 2. Anything that "cuts" the window into a pill (SetWindowRgn,
+    # -transparentcolor) is a 1-bit mask and can't be anti-aliased, and CTk's own rounded
+    # frame only blends against a flat colour. So the popup stays a plain rectangle, and
+    # the pill is drawn by PIL: supersampled 4x and scaled back down (smooth edges), then
+    # blended over a screenshot of what's actually behind the popup. The corners are
+    # therefore real anti-aliased pixels that already contain the launcher backdrop.
+    PILL_COLOR = "#d9d9d9"
+    popup.configure(fg_color=PILL_COLOR)
+
+    app.update_idletasks()
+    target_x = app.winfo_x() + config.WINDOW_W - 45 - panel_w
+    target_y = app.winfo_y() + 50
+    popup.geometry(f"{panel_w}x{panel_h}+{target_x}+{target_y}")
+    app.update()  # make sure the launcher is fully painted before grabbing its pixels
+
+    # Real on-screen size in pixels. Computed from the requested size and the display
+    # scaling rather than popup.winfo_width()/height(): a not-yet-mapped Toplevel reports
+    # a default ~200x200 size there, which produced a wrongly-sized pill image.
+    try:
+        _scale = float(ctk.ScalingTracker.get_window_scaling(popup))
+    except Exception:
+        _scale = 1.0
+    px_w = max(1, round(panel_w * _scale))
+    px_h = max(1, round(panel_h * _scale))
+    px_x, px_y = target_x, target_y
+
+    # DWM would otherwise round the popup's corners itself (Win 11) - hard-edged again.
+    try:
+        _hwnd = ctypes.windll.user32.GetParent(popup.winfo_id())
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(
+            _hwnd, 33, ctypes.byref(ctypes.c_int(1)), ctypes.sizeof(ctypes.c_int)  # DONOTROUND
+        )
+    except Exception:
+        pass
+
+    def build_pill_image():
+        from PIL import ImageGrab
+        try:
+            backdrop = ImageGrab.grab(bbox=(px_x, px_y, px_x + px_w, px_y + px_h), all_screens=True).convert("RGB")
+            if backdrop.size != (px_w, px_h):
+                backdrop = backdrop.resize((px_w, px_h))
+        except Exception:
+            backdrop = Image.new("RGB", (px_w, px_h), (11, 11, 13))  # dark fallback
+        ss = 4
+        mask = Image.new("L", (px_w * ss, px_h * ss), 0)
+        ImageDraw.Draw(mask).rounded_rectangle(
+            (0, 0, px_w * ss - 1, px_h * ss - 1), radius=(px_h * ss) // 2, fill=255
+        )
+        mask = mask.resize((px_w, px_h), Image.LANCZOS)
+        pill = Image.new("RGB", (px_w, px_h), PILL_COLOR)
+        return Image.composite(pill, backdrop, mask)
+
+    import tkinter as tk
+    panel_frame = tk.Canvas(popup, width=px_w, height=px_h, bg=PILL_COLOR, highlightthickness=0, bd=0)
+    panel_frame.place(x=0, y=0, width=px_w, height=px_h)
+    popup_pill_photo = ImageTk.PhotoImage(build_pill_image())
+    panel_frame.create_image(0, 0, image=popup_pill_photo, anchor="nw")
+    panel_frame.image = popup_pill_photo  # keep a reference so Tk doesn't garbage-collect it
+
+    # Single row, matching the mockup: "Music On : Playing" / "Music On : Paused", with
+    # only the status word colored (green/red) and "Music On :" staying the panel's
+    # normal text color - then the switch on the right of that same row. Status reflects
+    # actual playback (audio.is_music_actually_playing()), not just the toggle - the
+    # toggle can be On while playback is Paused (a game running, window minimized), and
+    # that distinction is the whole point of showing it.
+    status_row = ctk.CTkFrame(panel_frame, fg_color="transparent")
+    status_row.place(x=30, y=panel_h // 2, anchor="w")
+    ctk.CTkLabel(status_row, text="Music On : ", font=get_ctk_font(16, weight="bold"), text_color="#121216").pack(side="left")
+    status_value_lbl = ctk.CTkLabel(status_row, text="", font=get_ctk_font(16, weight="bold"))
+    status_value_lbl.pack(side="left")
+
+    def refresh_status_label():
+        if music_popup_window is not popup:
+            return  # popup closed/replaced since this was scheduled - stop polling
+        try:
+            playing = audio.is_music_actually_playing()
+        except Exception as e:
+            # If this ever fires it means audio.py doesn't actually have
+            # is_music_actually_playing() yet (e.g. an older copy of the file) - log it
+            # instead of silently leaving the label blank forever, which is what an
+            # uncaught exception inside a Tkinter after() callback does.
+            helpers.log(f"[DEBUG] Music status check failed: {e}")
+            status_value_lbl.configure(text="Unknown", text_color="#888888")
+            popup.after(300, refresh_status_label)
+            return
+        if playing:
+            status_value_lbl.configure(text="Playing", text_color="#2fae4e")
+        else:
+            status_value_lbl.configure(text="Paused", text_color="#d9534f")
+        popup.after(300, refresh_status_label)
+    refresh_status_label()
+
+    music_switch_var = IntVar(value=1 if audio.is_music_enabled() else 0)
+    ctk.CTkSwitch(
+        panel_frame, text="", variable=music_switch_var,
+        command=lambda: audio.set_music_enabled(bool(music_switch_var.get())),
+        onvalue=1, offvalue=0, progress_color="#fab301", button_color="#ffffff",
+        button_hover_color="#f2f2f2", fg_color="#8a8a8a", width=46, height=24
+    ).place(x=panel_w - 30, y=panel_h // 2, anchor="e")
+
+    popup.after(20, lambda: _animate_popup_alpha(popup, 8, reverse=False))
+
+
+def close_music_popup():
+    global music_popup_open, music_popup_window
+    if not music_popup_open or music_popup_window is None:
+        return
+    popup = music_popup_window
+    music_popup_open = False
+    music_popup_window = None
+
+    def destroy_popup():
+        try:
+            popup.destroy()
+        except Exception:
+            pass
+    _animate_popup_alpha(popup, 8, reverse=True, on_complete=destroy_popup)
 
 def refresh_all():
     games = db.get_all_games()

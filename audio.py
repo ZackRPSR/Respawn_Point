@@ -29,6 +29,17 @@ MUSIC_RELATIVE_PATH = "assets/sounds/ChillLofi.ogg"
 _music_loaded = False
 _music_playing_state = False
 
+# User-facing on/off preference (the "Music On" toggle), separate from
+# _music_playing_state (which tracks whether the track is *actually* audible right now).
+# Kept separate so the automatic minimize/game-launch logic in set_music_playing() and the
+# manual toggle never fight each other: set_music_playing() always records the last
+# window/game-driven desire (_last_should_play) even while the user has music switched
+# off, so flipping the toggle back on immediately resumes the correct state with no extra
+# wiring needed on the caller's side. In-memory only - resets to on each launch, same as
+# every other runtime UI state in this app (no settings-persistence layer exists yet).
+_music_user_enabled = True
+_last_should_play = False
+
 
 def init_audio():
     """Call once at startup, after config/helpers are ready and before the main loop.
@@ -97,16 +108,24 @@ def set_music_playing(should_play, fade_ms=1500):
     """The one entry point callers use for background music - idempotent, so it's safe
     to call every time something that might affect playback happens (window minimize/
     restore, a game launching/closing) without worrying about double-starting or
-    restarting an already-fading track. Only acts when should_play actually differs
-    from the current state."""
-    global _music_playing_state
+    restarting an already-fading track. Only acts when the *effective* desired state
+    (should_play AND the user's Music On/Off toggle) actually differs from what's
+    currently playing.
+
+    should_play always reflects the window/game-launch logic in main.py regardless of
+    the toggle - it's recorded as _last_should_play so set_music_enabled() below can
+    re-derive the correct playing state the instant the user flips the toggle, without
+    main.py having to recompute or resend its window/game state."""
+    global _music_playing_state, _last_should_play
     if not _initialized:
         return
-    if should_play == _music_playing_state:
+    _last_should_play = should_play
+    effective_should_play = should_play and _music_user_enabled
+    if effective_should_play == _music_playing_state:
         return
     try:
         import pygame
-        if should_play:
+        if effective_should_play:
             if _ensure_music_loaded():
                 pygame.mixer.music.play(loops=-1, fade_ms=fade_ms)
                 _music_playing_state = True
@@ -115,3 +134,29 @@ def set_music_playing(should_play, fade_ms=1500):
             _music_playing_state = False
     except Exception as e:
         helpers.log(f"[DEBUG] Music playback state change failed: {e}")
+
+
+def is_music_enabled():
+    """Current state of the user's Music On/Off toggle (not whether a track happens to
+    be audible right now - e.g. it stays True while minimized, since minimizing fades
+    the track out for a reason unrelated to the toggle)."""
+    return _music_user_enabled
+
+
+def is_music_actually_playing():
+    """Whether the track is audible right now, independent of the toggle - e.g. the
+    toggle can be On while this is False because a game is running or the window is
+    minimized. This is what the popup's "Music: Playing/Paused" status line reflects."""
+    return _music_playing_state
+
+
+def set_music_enabled(enabled, fade_ms=1500):
+    """Called by the toggle switch in the UI. Flips the user preference, then re-runs
+    set_music_playing() against the last known window/game desire so the track
+    fades in or out immediately - reusing that function's existing fade logic rather
+    than duplicating it here."""
+    global _music_user_enabled
+    if enabled == _music_user_enabled:
+        return
+    _music_user_enabled = enabled
+    set_music_playing(_last_should_play, fade_ms=fade_ms)
