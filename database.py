@@ -23,18 +23,25 @@ def init_db():
             exe_path TEXT,
             save_path TEXT,
             last_played TEXT,
-            total_minutes INTEGER DEFAULT 0
+            total_minutes INTEGER DEFAULT 0,
+            launch_args TEXT DEFAULT ''
         )
     """)
+    # Migration for libraries created before launch arguments existed: add the column
+    # only if it's missing. Existing rows (and their playtime stats) are untouched.
+    cursor.execute("PRAGMA table_info(games)")
+    existing_columns = [row[1] for row in cursor.fetchall()]
+    if "launch_args" not in existing_columns:
+        cursor.execute("ALTER TABLE games ADD COLUMN launch_args TEXT DEFAULT ''")
     conn.commit()
     conn.close()
 
-def add_game_to_db(name, exe_path, save_path):
+def add_game_to_db(name, exe_path, save_path, launch_args=""):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO games (name, exe_path, save_path) VALUES (?, ?, ?)",
-        (name, exe_path, save_path)
+        "INSERT INTO games (name, exe_path, save_path, launch_args) VALUES (?, ?, ?, ?)",
+        (name, exe_path, save_path, launch_args or "")
     )
     conn.commit()
     new_id = cursor.lastrowid
@@ -48,6 +55,29 @@ def get_all_games():
     rows = cursor.fetchall()
     conn.close()
     return rows
+
+def get_launch_args(game_id):
+    """Returns the launch-arguments string for one game ('' if none). Kept separate from
+    get_all_games() on purpose so that function's 6-column tuple shape (unpacked in many
+    places in main.py) never changes."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT launch_args FROM games WHERE id = ?", (game_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if row is None or row[0] is None:
+        return ""
+    return row[0]
+
+def set_launch_args(game_id, launch_args):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE games SET launch_args = ? WHERE id = ?",
+        ((launch_args or "").strip(), game_id)
+    )
+    conn.commit()
+    conn.close()
 
 def update_game(game_id, name, exe_path, save_path):
     conn = sqlite3.connect(DB_PATH)

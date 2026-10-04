@@ -10,6 +10,7 @@ if sys.stderr is None:
 
 import time
 import subprocess
+import shlex
 import threading
 import datetime
 import random
@@ -1483,8 +1484,17 @@ def launch_game(game_id, name, exe_path, save_path):
 
         helpers.restore_if_missing(game_id, name, save_path)
 
+        # Per-game launch arguments (e.g. Wuthering Waves needs -krqlv=hd since Kuro's
+        # update stopped it from starting without the launcher's quality flag).
         try:
-            process = subprocess.Popen(exe_path, cwd=game_folder)
+            raw_args = db.get_launch_args(game_id)
+            extra_args = [a.strip('"') for a in shlex.split(raw_args, posix=False)] if raw_args else []
+        except Exception:
+            helpers.log(f"[DEBUG] Could not read launch args for game {game_id}")
+            extra_args = []
+
+        try:
+            process = subprocess.Popen([exe_path] + extra_args, cwd=game_folder)
         except Exception:
             active_sessions.pop(game_id, None)
             app.after(0, refresh_all)
@@ -1781,7 +1791,7 @@ def open_game_settings_form(game):
 
     form = ctk.CTkCTkToplevel(app) if hasattr(ctk, "CTkCTkToplevel") else ctk.CTkToplevel(app)
     form.title(f"Settings - {name}")
-    form.geometry("593x445")
+    form.geometry("593x521")
     form.resizable(False, True)
     # No form.grab_set() here on purpose - a grab blocks input to the whole app (including
     # sidebar clicks), which is why switching pages used to require hitting Cancel first.
@@ -1792,10 +1802,10 @@ def open_game_settings_form(game):
     form.attributes("-alpha", 0.0)
 
     form.update_idletasks()
-    target_w, target_h = 593, 445
+    target_w, target_h = 593, 521
     target_x = app.winfo_x() + (app.winfo_width() - target_w) // 2
     target_y = app.winfo_y() + (app.winfo_height() - target_h) // 2
-    form.geometry(f"593x445+{target_x}+{target_y}")
+    form.geometry(f"593x521+{target_x}+{target_y}")
 
     form.configure(fg_color="#585858")
 
@@ -1813,7 +1823,7 @@ def open_game_settings_form(game):
                 ctypes.sizeof(ctypes.c_int)
             )
             
-            region = ctypes.windll.gdi32.CreateRoundRectRgn(0, 0, 594, 400, radius, radius)
+            region = ctypes.windll.gdi32.CreateRoundRectRgn(0, 0, 594, 476, radius, radius)
             ctypes.windll.user32.SetWindowRgn(hwnd, region, True)
         except Exception:
             pass
@@ -1891,7 +1901,7 @@ def open_game_settings_form(game):
         border_color="#e06666",
         command=lambda: [audio.play_sfx("bong"), trigger_delete_confirm()]
     )
-    delete_btn.place(x=22, y=350, anchor="w")
+    delete_btn.place(x=22, y=426, anchor="w")
 
     name_lbl = ctk.CTkLabel(modal_frame, text="Game Name", font=get_ctk_font(14), text_color="#ffffff")
     name_lbl.place(x=593//2, y=66, anchor="center")
@@ -2003,15 +2013,27 @@ def open_game_settings_form(game):
     )
     manual_btn.place(x=s2_left + 300 + 24, y=230, anchor="nw")
 
+    args_lbl = ctk.CTkLabel(modal_frame, text="Launch Arguments (optional)", font=get_ctk_font(14), text_color="#ffffff")
+    args_lbl.place(x=593//2, y=286, anchor="center")
+
+    args_entry = ctk.CTkEntry(modal_frame, width=150 * 3 + 24, height=35, fg_color="#d9d9d9", text_color="#121216", border_width=0, corner_radius=17.5, font=get_ctk_font(11), placeholder_text="e.g. -krqlv=hd")
+    args_entry.place(x=s2_left, y=306, anchor="nw")
+    try:
+        _existing_args = db.get_launch_args(game_id)
+    except Exception:
+        _existing_args = ""
+    if _existing_args:
+        args_entry.insert(0, _existing_args)
+
     feedback_lbl = ctk.CTkLabel(modal_frame, text="", font=get_ctk_font(10), text_color="#d9534f")
-    feedback_lbl.place(x=593//2, y=305, anchor="center")
+    feedback_lbl.place(x=593//2, y=381, anchor="center")
 
     disclaimer_text = (
         "Update your game executable path or save file directory below.\n"
         "Changes will take effect immediately upon confirmation."
     )
     disc_lbl = ctk.CTkLabel(modal_frame, text=disclaimer_text, font=get_ctk_font(12), text_color="#b0b0b0", justify="center")
-    disc_lbl.place(x=593//2, y=295, anchor="center")
+    disc_lbl.place(x=593//2, y=371, anchor="center")
 
     def trigger_delete_confirm():
         delete_btn.place_forget()
@@ -2023,7 +2045,7 @@ def open_game_settings_form(game):
         confirm_fire_btn.configure(text="Delete Forever", fg_color="#c0392b", hover_color="#992d22", text_color="#ffffff", command=_bong(do_delete_game))
 
     def cancel_delete_confirm():
-        delete_btn.place(x=22, y=350, anchor="w")
+        delete_btn.place(x=22, y=426, anchor="w")
         disc_lbl.configure(text=disclaimer_text, text_color="#b0b0b0")
         cancel_plain_btn.configure(text="Cancel", command=_bong(cancel_form))
         confirm_fire_btn.configure(text="Confirm", fg_color="#d9d9d9", hover_color="#c0c0c0", text_color="#121216", command=_bong(confirm_form))
@@ -2102,6 +2124,11 @@ def open_game_settings_form(game):
         except Exception as e:
             helpers.log(f"[DEBUG] Failed to update game in DB: {e}")
 
+        try:
+            db.set_launch_args(game_id, args_entry.get().strip())
+        except Exception as e:
+            helpers.log(f"[DEBUG] Failed to save launch args: {e}")
+
         close_modal_with_animation(on_complete=lambda: [
             form.destroy(),
             refresh_all()
@@ -2126,7 +2153,7 @@ def open_game_settings_form(game):
         corner_radius=19.5,
         command=_bong(cancel_form)
     )
-    cancel_plain_btn.place(x=btn_block_left, y=330, anchor="nw")
+    cancel_plain_btn.place(x=btn_block_left, y=406, anchor="nw")
 
     confirm_fire_btn = ctk.CTkButton(
         modal_frame,
@@ -2140,7 +2167,7 @@ def open_game_settings_form(game):
         corner_radius=19.5,
         command=_bong(confirm_form)
     )
-    confirm_fire_btn.place(x=btn_block_left + 150 + 19, y=330, anchor="nw")
+    confirm_fire_btn.place(x=btn_block_left + 150 + 19, y=406, anchor="nw")
 
     form.protocol("WM_DELETE_WINDOW", on_form_close)
 
@@ -2155,7 +2182,7 @@ def open_add_game_form():
 
     form = ctk.CTkCTkToplevel(app) if hasattr(ctk, "CTkCTkToplevel") else ctk.CTkToplevel(app)
     form.title("Add games to launcher")
-    form.geometry("593x445")
+    form.geometry("593x525")
     form.resizable(False, False)
     # No form.grab_set() here on purpose - a grab blocks input to the whole app (including
     # sidebar clicks), which is why switching pages used to require hitting Cancel first.
@@ -2166,10 +2193,10 @@ def open_add_game_form():
     form.attributes("-alpha", 0.0)
 
     form.update_idletasks()
-    target_w, target_h = 593, 445
+    target_w, target_h = 593, 525
     target_x = app.winfo_x() + (app.winfo_width() - target_w) // 2
     target_y = app.winfo_y() + (app.winfo_height() - target_h) // 2
-    form.geometry(f"593x445+{target_x}+{target_y}")
+    form.geometry(f"593x525+{target_x}+{target_y}")
 
     form.configure(fg_color="#585858")
 
@@ -2187,7 +2214,7 @@ def open_add_game_form():
                 ctypes.sizeof(ctypes.c_int)
             )
             
-            region = ctypes.windll.gdi32.CreateRoundRectRgn(0, 0, 594, 446, radius, radius)
+            region = ctypes.windll.gdi32.CreateRoundRectRgn(0, 0, 594, 526, radius, radius)
             ctypes.windll.user32.SetWindowRgn(hwnd, region, True)
         except Exception:
             pass
@@ -2367,8 +2394,14 @@ def open_add_game_form():
     )
     manual_btn.place(x=s2_left + 300 + 24, y=255, anchor="nw")
 
+    args_lbl = ctk.CTkLabel(modal_frame, text="Launch Arguments (optional)", font=get_ctk_font(14), text_color="#ffffff")
+    args_lbl.place(x=593//2, y=313, anchor="center")
+
+    args_entry = ctk.CTkEntry(modal_frame, width=150 * 3 + 24, height=35, fg_color="#d9d9d9", text_color="#121216", border_width=0, corner_radius=17.5, font=get_ctk_font(11), placeholder_text="e.g. -krqlv=hd")
+    args_entry.place(x=s2_left, y=335, anchor="nw")
+
     feedback_lbl = ctk.CTkLabel(modal_frame, text="", font=get_ctk_font(10), text_color="#d9534f")
-    feedback_lbl.place(x=593//2, y=305, anchor="center")
+    feedback_lbl.place(x=593//2, y=385, anchor="center")
 
     disclaimer_text = (
         "Please note that “Add save file” feature is only for offline singleplayer games.\n"
@@ -2376,7 +2409,7 @@ def open_add_game_form():
         "computer"
     )
     disc_lbl = ctk.CTkLabel(modal_frame, text=disclaimer_text, font=get_ctk_font(12), text_color="#b0b0b0", justify="center")
-    disc_lbl.place(x=593//2, y=345, anchor="center")
+    disc_lbl.place(x=593//2, y=425, anchor="center")
 
     def cancel_form():
         on_form_close()
@@ -2386,6 +2419,7 @@ def open_add_game_form():
             name = name_entry.get().strip()
             exe_path = exe_entry.get().strip()
             save_path = save_entry.get().strip()
+            launch_args = args_entry.get().strip()
 
             if not name:
                 feedback_lbl.configure(text="*Game name is required.*", text_color="#d9534f")
@@ -2399,7 +2433,7 @@ def open_add_game_form():
                 feedback_lbl.configure(text="*Save folder conflict with game path.*", text_color="#d9534f")
                 return
 
-            new_id = db.add_game_to_db(name, exe_path, save_path)
+            new_id = db.add_game_to_db(name, exe_path, save_path, launch_args)
 
             close_modal_with_animation(on_complete=lambda: [
                 form.destroy(),
@@ -2432,7 +2466,7 @@ def open_add_game_form():
         corner_radius=19.5,
         command=_bong(cancel_form)
     )
-    cancel_plain_btn.place(x=btn_block_left, y=385, anchor="nw")
+    cancel_plain_btn.place(x=btn_block_left, y=465, anchor="nw")
 
     confirm_fire_btn = ctk.CTkButton(
         modal_frame,
@@ -2446,7 +2480,7 @@ def open_add_game_form():
         corner_radius=19.5,
         command=_bong(confirm_form)
     )
-    confirm_fire_btn.place(x=btn_block_left + 150 + 19, y=385, anchor="nw")
+    confirm_fire_btn.place(x=btn_block_left + 150 + 19, y=465, anchor="nw")
 
     form.protocol("WM_DELETE_WINDOW", on_form_close)
 
