@@ -999,11 +999,52 @@ def animate_static_selection(new_game_id):
 
     step(0)
 
-def select_game(game_id):
+_pending_arrow_dir = 0  # -1 / +1 = a Left/Right press waiting for the current animation to end; 0 = none
+
+def _arrow_target_game_id(direction):
+    """The game one step left (-1) or right (+1) of the selected one, in library order,
+    wrapping around at the ends (same wrap-around the windowed carousel already uses)."""
+    games = db.get_all_games()
+    if not games:
+        return None
+    ids = [g[0] for g in games]
+    if selected_game_id not in ids:
+        return ids[0]
+    return ids[(ids.index(selected_game_id) + direction) % len(ids)]
+
+def on_arrow_key(direction):
+    """Left/Right arrow handler. Only does anything on the carousel page with no modal
+    open. If an animation is still running, the press is remembered (just the latest
+    one, so holding a key can never pile up a backlog) and applied by _arrow_pump() the
+    moment the animation finishes - so quick taps aren't silently dropped."""
+    global _pending_arrow_dir
+    if current_view != "carousel" or add_game_window_open:
+        return
+    _pending_arrow_dir = direction
+
+def _arrow_pump():
+    global _pending_arrow_dir
+    try:
+        if _pending_arrow_dir:
+            if current_view != "carousel" or add_game_window_open:
+                _pending_arrow_dir = 0   # page changed / modal opened - discard stale press
+            elif not animation_in_progress:
+                direction = _pending_arrow_dir
+                _pending_arrow_dir = 0
+                target_id = _arrow_target_game_id(direction)
+                if target_id is not None:
+                    select_game(target_id, sfx="bong")
+    except Exception:
+        print("[DEBUG] _arrow_pump() crashed:")
+        traceback.print_exc()
+    app.after(20, _arrow_pump)
+
+def select_game(game_id, sfx="switch"):
+    # sfx: mouse clicks keep the default "switch" sound; arrow-key navigation passes "bong".
     global selected_game_id, animation_in_progress
     if game_id == selected_game_id or animation_in_progress or add_game_window_open:
         return
-    audio.play_sfx("switch")
+    audio.play_sfx(sfx)
     global _shine_phase
     _shine_phase = 0
     if selected_game_id is None:
@@ -3338,17 +3379,24 @@ def redraw_all():
             visible_card_items.append(border_item)
 
         hit_zone = main_canvas.create_rectangle(x_cursor, y_top, x_cursor + w, y_top + h, fill="", outline="")
-        main_canvas.tag_bind(hit_zone, "<Button-1>", lambda e, gid=g_id: select_game(gid))
 
-        CARD_LIFT = 8
-        def on_card_enter(e, itm=item, card_offset=offset):
-            if not animation_in_progress and card_offset != 0:
-                animate_lift(main_canvas, itm, CARD_LIFT)
-        def on_card_leave(e, itm=item, card_offset=offset):
-            if not animation_in_progress and card_offset != 0:
-                animate_lift(main_canvas, itm, 0)
-        main_canvas.tag_bind(hit_zone, "<Enter>", on_card_enter)
-        main_canvas.tag_bind(hit_zone, "<Leave>", on_card_leave)
+        # Only the two cards directly beside the selected one are interactive. The
+        # outermost cards (offset -2/+2) are not clickable and don't lift on hover - to
+        # reach one you step toward it (click the neighbor, or use the Left/Right arrow
+        # keys - see on_arrow_key()). This also means the incoming outermost card can
+        # never be clicked into view from off-screen.
+        if abs(offset) == 1:
+            main_canvas.tag_bind(hit_zone, "<Button-1>", lambda e, gid=g_id: select_game(gid))
+
+            CARD_LIFT = 8
+            def on_card_enter(e, itm=item):
+                if not animation_in_progress:
+                    animate_lift(main_canvas, itm, CARD_LIFT)
+            def on_card_leave(e, itm=item):
+                if not animation_in_progress:
+                    animate_lift(main_canvas, itm, 0)
+            main_canvas.tag_bind(hit_zone, "<Enter>", on_card_enter)
+            main_canvas.tag_bind(hit_zone, "<Leave>", on_card_leave)
 
         visible_card_items.append(item)
         visible_card_items.append(hit_zone)
@@ -3527,11 +3575,21 @@ app.bind("<Map>", _on_window_map)
 main_canvas.bind("<ButtonPress-1>", start_window_drag)
 main_canvas.bind("<B1-Motion>", do_window_drag)
 
+# Left/Right arrows rotate the carousel. Bound on the main window only, so the modal
+# popups (which are their own windows) never trigger it. The borderless window doesn't
+# always receive keyboard focus on its own, so the canvas takes focus on startup and
+# whenever it's clicked.
+app.bind("<Left>", lambda e: on_arrow_key(-1))
+app.bind("<Right>", lambda e: on_arrow_key(1))
+main_canvas.bind("<ButtonPress-1>", lambda e: main_canvas.focus_set(), add="+")
+app.after(700, lambda: main_canvas.focus_force())
+
 refresh_all()
 app.after(16, animate_launch_hover)
 init_fire_particles()
 app.after(16, animate_fire_particles)
 app.after(30, animate_card_shine)
+app.after(20, _arrow_pump)
 _update_music_state()
 
 app.mainloop()
