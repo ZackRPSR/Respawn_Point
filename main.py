@@ -2831,6 +2831,53 @@ def load_sidebar_icon(path, size):
     _sidebar_icon_cache[key] = photo
     return photo
 
+# Sidebar hover "grow" effect. Tk can't scale a canvas image smoothly on the fly, so each
+# sidebar icon is pre-rendered at a few slightly larger sizes (cached, built once) and the
+# hover animation just swaps between those frames - small enough to feel like a gentle
+# pop, and cheap because nothing is resized while the mouse moves.
+_SIDEBAR_HOVER_GROW = (0, 2, 4, 5)   # extra pixels per animation frame (last = fully hovered)
+_icon_hover_state = {}               # canvas item id -> {"step": int, "target": int, "running": bool}
+
+def _sidebar_icon_frames(path, base_size):
+    """Returns the list of PhotoImages (smallest -> largest) for one sidebar icon, or None
+    if any of them couldn't be loaded (in which case that icon simply gets no hover grow).
+    path=None means the drawn fallback backup icon."""
+    key = (path, base_size, "frames")
+    if key in _sidebar_icon_cache:
+        return _sidebar_icon_cache[key]
+    frames = []
+    for grow in _SIDEBAR_HOVER_GROW:
+        size = base_size + grow
+        frames.append(load_sidebar_icon(path, size) if path else render_backup_icon(size))
+    if any(f is None for f in frames):
+        frames = None
+    _sidebar_icon_cache[key] = frames
+    return frames
+
+def _animate_icon_scale(item, frames, target):
+    """Steps one canvas image item toward frames[target], one frame per tick. Safe to call
+    again mid-animation (just changes the target, so quickly sweeping the mouse across
+    several icons never stacks up loops) and safe if the item has since been deleted by a
+    redraw (Tk ignores itemconfigure on a missing item, and the loop ends on its own)."""
+    state = _icon_hover_state.setdefault(item, {"step": 0, "target": 0, "running": False})
+    state["target"] = target
+    if state["running"]:
+        return
+    state["running"] = True
+
+    def tick():
+        try:
+            if state["step"] == state["target"]:
+                state["running"] = False
+                return
+            state["step"] += 1 if state["target"] > state["step"] else -1
+            main_canvas.itemconfigure(item, image=frames[state["step"]])
+        except Exception:
+            state["running"] = False
+            return
+        main_canvas.after(18, tick)
+    tick()
+
 def draw_sidebar_icons():
     global sidebar_indicator_item
     sidebar_w = config.SIDEBAR_W
@@ -2855,13 +2902,18 @@ def draw_sidebar_icons():
         fill="#ffffff", width=3
     )
 
-    logo_photo = load_sidebar_icon(config.SIDEBAR_LOGO_PATH, 40)
+    logo_frames = _sidebar_icon_frames(config.SIDEBAR_LOGO_PATH, 40)
+    logo_item = None
+    logo_photo = logo_frames[0] if logo_frames else load_sidebar_icon(config.SIDEBAR_LOGO_PATH, 40)
     if logo_photo:
         card_image_refs["sidebar_logo"] = logo_photo
-        main_canvas.create_image(icon_x, logo_y, image=logo_photo)
+        logo_item = main_canvas.create_image(icon_x, logo_y, image=logo_photo)
     
     logo_hit = main_canvas.create_rectangle(0, logo_y - 25, sidebar_w, logo_y + 25, fill="", outline="")
     main_canvas.tag_bind(logo_hit, "<Button-1>", lambda e: [audio.play_sfx("switch"), handle_flame_click()])
+    if logo_item is not None and logo_frames:
+        main_canvas.tag_bind(logo_hit, "<Enter>", lambda e, it=logo_item, fr=logo_frames: _animate_icon_scale(it, fr, len(fr) - 1))
+        main_canvas.tag_bind(logo_hit, "<Leave>", lambda e, it=logo_item, fr=logo_frames: _animate_icon_scale(it, fr, 0))
 
     # Real icon now exists (backup and restore.png in the Misc Icons folder) - loaded via
     # config.SIDEBAR_BACKUP_PATH the same way the other 3 mid icons are. getattr fallback
@@ -2870,12 +2922,17 @@ def draw_sidebar_icons():
     backup_icon_path = getattr(config, "SIDEBAR_BACKUP_PATH", None)
     mid_paths = [config.SIDEBAR_CLOCK_PATH, config.SIDEBAR_LIBRARY_PATH, config.SIDEBAR_DOWNLOAD_PATH, backup_icon_path]
     for i, (path, y) in enumerate(zip(mid_paths, mid_ys)):
-        photo = load_sidebar_icon(path, 26) if path else render_backup_icon(26)
+        icon_frames = _sidebar_icon_frames(path, 26)
+        photo = icon_frames[0] if icon_frames else (load_sidebar_icon(path, 26) if path else render_backup_icon(26))
+        icon_item = None
         if photo:
             card_image_refs[f"sidebar_mid_{i}"] = photo
-            main_canvas.create_image(icon_x, y, image=photo)
+            icon_item = main_canvas.create_image(icon_x, y, image=photo)
         
         hit = main_canvas.create_rectangle(0, y - 20, sidebar_w, y + 20, fill="", outline="")
+        if icon_item is not None and icon_frames:
+            main_canvas.tag_bind(hit, "<Enter>", lambda e, it=icon_item, fr=icon_frames: _animate_icon_scale(it, fr, len(fr) - 1))
+            main_canvas.tag_bind(hit, "<Leave>", lambda e, it=icon_item, fr=icon_frames: _animate_icon_scale(it, fr, 0))
         if i == 0:
             # Clock icon = "recent games" = the carousel/home view. This binding was
             # missing entirely, so clicking this icon never did anything at all,
@@ -2888,17 +2945,44 @@ def draw_sidebar_icons():
         elif i == 3:
             main_canvas.tag_bind(hit, "<Button-1>", lambda e: [audio.play_sfx("switch"), open_backup_info_window()])
 
+_control_hover_box_cache = {}
+
+def _control_hover_box_photo(w=32, h=28, radius=8, alpha=46):
+    """Soft translucent white rounded box shown behind a window-control icon on hover.
+    Supersampled so the corners are smooth; cached so redraws don't rebuild it."""
+    key = (w, h, radius, alpha)
+    if key not in _control_hover_box_cache:
+        ss = 4
+        img = Image.new("RGBA", (w * ss, h * ss), (0, 0, 0, 0))
+        ImageDraw.Draw(img).rounded_rectangle((0, 0, w * ss - 1, h * ss - 1), radius=radius * ss, fill=(255, 255, 255, alpha))
+        img = img.resize((w, h), Image.LANCZOS)
+        _control_hover_box_cache[key] = ImageTk.PhotoImage(img)
+    return _control_hover_box_cache[key]
+
+def _make_control_hover_box(cx, cy):
+    """Creates the (initially hidden) highlight box centered on a control. Must be called
+    BEFORE the control's icon is drawn so the box sits underneath it, not over it."""
+    return main_canvas.create_image(cx, cy, image=_control_hover_box_photo(), state="hidden")
+
+def _bind_control_hover(hit, box):
+    main_canvas.tag_bind(hit, "<Enter>", lambda e, b=box: main_canvas.itemconfigure(b, state="normal"))
+    main_canvas.tag_bind(hit, "<Leave>", lambda e, b=box: main_canvas.itemconfigure(b, state="hidden"))
+
 def draw_window_controls():
     close_cx, close_cy = config.WINDOW_W - 20, 20
+    close_box = _make_control_hover_box(close_cx, close_cy)
     main_canvas.create_line(close_cx - 6, close_cy - 6, close_cx + 6, close_cy + 6, fill="#dddddd", width=2, capstyle="round")
     main_canvas.create_line(close_cx - 6, close_cy + 6, close_cx + 6, close_cy - 6, fill="#dddddd", width=2, capstyle="round")
     close_hit = main_canvas.create_rectangle(config.WINDOW_W - 45, 0, config.WINDOW_W, 45, fill="", outline="")
     main_canvas.tag_bind(close_hit, "<Button-1>", lambda e: close_app())
+    _bind_control_hover(close_hit, close_box)
 
     min_cx, min_cy = config.WINDOW_W - 60, 20
+    min_box = _make_control_hover_box(min_cx, min_cy)
     main_canvas.create_line(min_cx - 6, min_cy, min_cx + 6, min_cy, fill="#dddddd", width=2, capstyle="round")
     min_hit = main_canvas.create_rectangle(config.WINDOW_W - 85, 0, config.WINDOW_W - 45, 45, fill="", outline="")
     main_canvas.tag_bind(min_hit, "<Button-1>", lambda e: minimize_window())
+    _bind_control_hover(min_hit, min_box)
 
     # Music settings cogwheel - sits left of minimize, same row/height as close+minimize.
     # Uses load_settings_icon() (the real settings-icon.png, same as the per-game
@@ -2912,9 +2996,11 @@ def draw_window_controls():
     gear_icon = load_settings_icon(size=18, color="#dddddd")
     card_image_refs["window_music_gear"] = ImageTk.PhotoImage(gear_icon)
     gear_cx, gear_cy = config.WINDOW_W - 100, 20
+    gear_box = _make_control_hover_box(gear_cx, gear_cy)
     main_canvas.create_image(gear_cx, gear_cy, image=card_image_refs["window_music_gear"])
     gear_hit = main_canvas.create_rectangle(config.WINDOW_W - 125, 0, config.WINDOW_W - 85, 45, fill="", outline="", tags="music_gear_hit")
     main_canvas.tag_bind(gear_hit, "<Button-1>", lambda e: toggle_music_popup())
+    _bind_control_hover(gear_hit, gear_box)
 
 
 def toggle_music_popup():
