@@ -3176,6 +3176,27 @@ def refresh_all():
         _recompute_slot_occupants(0, games)
     redraw_all()
 
+def _destroy_scrollable_frame_completely(frame):
+    """Destroys a CTkScrollableFrame AND its hidden outer container.
+
+    In customtkinter 5.2.1/5.2.2, CTkScrollableFrame.destroy() only destroys the inner
+    frame (the one you put widgets in) and leaves its outer container - the canvas +
+    scrollbar wrapper that .place() actually positioned on screen - alive and still
+    visible. That left an empty dark panel sitting over the Recent Games page after
+    leaving the Games Library. customtkinter 6.0 fixed this itself, so the extra destroy
+    below is skipped there (the container no longer exists by then)."""
+    outer = getattr(frame, "_parent_frame", None)
+    try:
+        frame.destroy()
+    except Exception:
+        traceback.print_exc()
+    if outer is not None:
+        try:
+            if outer.winfo_exists():
+                outer.destroy()
+        except Exception:
+            pass
+
 def redraw_all():
     global current_hero_pil, hero_bg_item, text_overlay_item, library_frame
     global library_search_entry_widget, library_content_wrap, library_grid_holder
@@ -3190,7 +3211,7 @@ def redraw_all():
     _canvas_generation += 1
 
     if library_frame is not None:
-        library_frame.destroy()
+        _destroy_scrollable_frame_completely(library_frame)
         library_frame = None
         library_search_entry_widget = None
         library_content_wrap = None
